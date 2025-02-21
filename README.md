@@ -3,10 +3,13 @@
 
 ## Diagram UML of Revo Bank (in progress)
 
-### Registration Diagram
-![Registration](./assets/images/registdiagram.png)
+<!-- ### Registration Diagram
+![Registration](./assets/images/registdiagram.png) -->
 
 ### Login Diagram
 ![Login](./assets/images/logindiagram.png)
+The purpose of each diagram.
+Key decisions and processes represented in the diagrams.
 
 ### Transaction Handling Diagram
+
