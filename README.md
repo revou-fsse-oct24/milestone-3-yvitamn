@@ -94,5 +94,5 @@ More detail Flow
 ![Login](./assets/images/logindiagram.png)
 
 ### Transaction Handling 
-![Transaction](./assets/images/transcationdiagram.png)
+![Transaction](./assets/images/transactiondiagram.png)
 
