@@ -12,4 +12,5 @@ The purpose of each diagram.
 Key decisions and processes represented in the diagrams.
 
 ### Transaction Handling Diagram
+![Transaction](./assets/images/transcationdiagram.png)
 
