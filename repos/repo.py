@@ -36,7 +36,7 @@ class TransactionRepository(DummyBaseRepository):
             or t.to_account_id in user_accounts
         ]
     
-    def find_by_account(self, account_id):
+    def find_by_account(self, account_id: str) -> list[Transaction]:
         return [
             t for t in self.collection.values()
             if t.from_account_id == account_id

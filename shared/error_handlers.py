@@ -17,5 +17,4 @@ def register_error_handlers(app):
         return jsonify({"error": "Unexpected server error"}), 500
     
    
-   
-   # invalid token error maximum 3 attempts
+   # InvalidTokenError() 

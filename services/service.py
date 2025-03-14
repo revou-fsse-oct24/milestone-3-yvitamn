@@ -36,39 +36,62 @@ class UserService:
     
 class AuthService:
     #make limit for pin attemps
-    MAX_PIN_RETRIES = 3
+    # MAX_PIN_RETRIES = 3
 
     def __init__(self):
         self.repo = UserRepository()
         
     def login(self, username, pin):
-        user = self.repo.find_by_username(username)   
-        
-        if not user or not self.validate_pin(user, pin):
-            raise InvalidPinError("Invalid credentials")
-            
-        user.token = str(uuid.uuid4())
-        return user
-        
-        
-    def validate_pin(self, user, pin_attempt):
-        if user.pin_retries >= self.MAX_PIN_RETRIES:
-            raise RetryExceededError("Account locked")
-            
-        if user.pin != pin_attempt:
-            user.pin_retries += 1
+        user = self.repo.find_by_username(username)       
+        # if not user or not self._validate_pin(user, pin):
+        #     raise InvalidPinError("Invalid credentials")
+          
+        if user and user.pin == pin:       
+            user.token = str(uuid.uuid4()) #Genereate UUID token
             self.repo.update(user)
-            return False
+            return user
+        return None       
+        
+    # def _validate_pin(self, user, pin_attempt):
+    #     if user.pin_retries >= self.MAX_PIN_RETRIES:
+    #         raise RetryExceededError("Account locked")
             
-        user.pin_retries = 0
-        self.repo.update(user)
-        return True
+    #     if user.pin != pin_attempt:
+    #         user.pin_retries += 1
+    #         self.repo.update(user)
+    #         return False
+            
+    #     user.pin_retries = 0
+    #     self.repo.update(user)
+    #     return True
 
 class AccountService:
-    @staticmethod
-    def create_account(user_id, account_type):
-        account = Account(user_id, account_type)
-        return AccountRepository.create_account(account)
+    def __init__(self):
+        self.repo = AccountRepository()
+        self.repo = UserRepository()
+        
+    def create_account(self, user_id, account_type):
+        # Validate user exists
+        if not self.user_repo.find_by_id(user_id):
+            raise NotFoundError("User not found")
+    
+    # Create account with UUID
+        account = Account(
+            user_id=user_id,
+            account_type=account_type,
+            account_number=str(uuid.uuid4().int)[:12]  # 12-digit account number
+        )
+        return self.account_repo.create(account)
+    
+    def get_user_accounts(self, user_id):
+        return self.account_repo.find_by_user(user_id)
+    
+    def get_account_by_id(self, user_id, account_id):
+        # Verify account exists and belongs to user
+        account = self.account_repo.find_by_id(account_id)
+        if not account or account.user_id != user_id:
+            raise NotFoundError("Account not found")
+        return account
     
 class TransactionService:
     def __init__(self):
@@ -77,68 +100,98 @@ class TransactionService:
         self.schema = TransactionSchema()
         
     def create_transaction(self, user, transaction_data):
-        #Validate input
+        #Validate input using schema
         errors = self.schema.validate(transaction_data)
         if errors:
             raise ValidationError(errors)
         
-        transaction_type = 
+        transaction_type = transaction_data['type']
+        amount = float(transaction_data['amount'])
         
+        # Generate UUID for transaction
+        transaction_id = str(uuid.uuid4())
         
+        #Get related accounts & validate
+        from_account = self._validate_source_account(user, transaction_data)
+        to_account = self._validate_destination_account(user, transaction_data)
         
+        # Check balance
+        if from_account.balance < transaction_data['amount']:
+            raise InsufficientBalanceException("Insufficient funds")
         
-        
-        
-        
-        
-        
-        
-        
-        
-        transaction_type = transaction_data.get('type')
-        if transaction_type not in ['deposit', 'withdrawal', 'transfer']:
-            return None, "Invalid transaction type"
-   
-        amount = float(transaction_data.get('amount',0))
-        from_account_id = transaction_data.get('from_account_id')
-        to_account_id = transaction_data.get('to_account_id')
-        
-        #Get relevant accounts
-        from_account = dummy_db['accounts'].get(from_account_id)
-        to_account = dummy_db['accounts'].get(to_account_id)
-        
-        #Transaction validation
-        if transaction_type == 'withdrawal' or transaction_type == 'transfer':
-            if not from_account or from_account.user_id != user.id:
-                return None, "Invalid source account"
-            if from_account.balance < amount:
-                return None, "Insufficient funds"
+        # Process transaction
+        try:
+            self._update_balances(
+                    transaction_type,
+                    from_account,
+                    to_account,
+                    amount
+                )
             
-        if transaction_type == 'deposit':
-            if not to_account or to_account.user_id != user.id:
-                return None, "Invalid destination account"
+            #Create transaction record
+            transaction = Transaction(
+                id=transaction_id,
+                transaction_type = transaction_type,
+                amount=amount,
+                from_account_id=from_account.id,
+                to_account_id=to_account.id if to_account else None,
+                status='completed',
+                description=transaction_data.get('description', '')
+            )
             
-        #Execute transaction
+            self.repo.save(transaction)
+            return transaction
+    
+        except Exception as e:
+             # Create failed transaction record
+                transaction = Transaction(
+                    id=transaction_id,
+                    transaction_type = transaction_type,
+                    amount=amount,
+                    status='failed',
+                    description=str(e)
+                )
+                self.repo.save(transaction)
+                raise          
+        
+    def _validate_source_account(self, user, data):
+        if data['type'] in ['withdrawal', 'transfer']:
+            account = self.repo.find_by_id(data['from_account_id'])
+            if not account or account.user_id != user.id:
+                raise InvalidAccountError("Invalid source account")
+            return account
+        return None    
+        
+    def _validate_destination_account(self, user, data):
+        if data['type'] in ['deposit', 'transfer']:
+            account = self.repo.find_by_id(data['to_account_id'])
+            if not account:
+                raise InvalidAccountError("Destination account not found")
+            if data['type'] == 'deposit' and account.user_id != user.id:
+                raise InvalidAccountError("Cannot deposit to another user's account")
+            return account
+        return None   
+        
+    def _update_balances(self, transaction_type, from_account, to_account, amount):
         try:
             if transaction_type == 'deposit':
                 to_account.balance += amount
             elif transaction_type == 'withdrawal':
-                to_account.balance -=amount
+                from_account.balance -= amount
             elif transaction_type == 'transfer':
                 from_account.balance -= amount
                 to_account.balance += amount
                 
-            transaction = Transaction(
-                transaction_type=transaction_type,
-                amount=amount,
-                from_account_id=from_account_id,
-                to_account_id=to_account_id,
-                description=transaction_data.get('description', '')
-            )
-            transaction.status = "completed"
             
-            dummy_db['transactions'][transaction.id] = transaction
-            return transaction, None
-        
+            self.repo.update(from_account)
+            if to_account:
+                self.repo.update(to_account)
+                
         except Exception as e:
-            return None, str(e)
+            raise TransactionFailedError(f"Balance update failed: {str(e)}")     
+        
+        
+        
+        
+        
+        

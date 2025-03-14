@@ -47,7 +47,7 @@
             - if expired, regenerate the token
         - If invalid credentials, will display confirmation message and and the process
 
-Notes for improvement: System should records for the failed attempt, failed attempt 3x(send email notif)& should end the process
+Notes for improvement: System should records for the failed attempt, failed attempt 3x& should end the process
 
 2. Transaction Handling
     - Decision : ####is the Balance of the User is sufficient?

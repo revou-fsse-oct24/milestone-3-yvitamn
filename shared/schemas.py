@@ -10,12 +10,12 @@ class UserSchema(Schema):
     first_name = fields.Str()
     last_name = fields.Str()
     
-# class LoginSchema(Schema):
-#     email = fields.Email(required=True)
-#     pin = fields.Str(
-#         required=True, 
-#         validate=validate.Length(min=4, max=6)
-#         )
+class LoginSchema(Schema):
+    email = fields.Email(required=True)
+    pin = fields.Str(
+        required=True, 
+        validate=validate.Length(min=4, max=6)
+        )
     
 class TransactionSchema(Schema):
     amount = fields.Decimal(required=True, gt=0)

@@ -1,5 +1,5 @@
 from flask import Flask
-from routers.app import router
+from routers.router import router
 from shared.error_handlers import register_error_handlers
 
 def create_app():
