@@ -46,14 +46,15 @@ class AuthService:
         
     def login(self, username, pin):
         user = self.repo.find_by_username(username)       
-        # if not user or not self._validate_pin(user, pin):
-        #     raise InvalidPinError("Invalid credentials")
+        if not user or user.pin != pin:
+            raise AuthenticationError("Invalid credentials")
           
-        if user and user.pin == pin:       
-            user.token = str(uuid.uuid4()) #Generate UUID token
-            self.repo.update(user)
-            return user
-        return None       
+        # if user and user.pin == pin: 
+        # Generate and store new token 
+        user.token = str(uuid.uuid4()) #Generate UUID token
+        self.repo.update(user)
+        return user
+             
         
     # def _validate_pin(self, user, pin_attempt):
     #     if user.pin_retries >= self.MAX_PIN_RETRIES:

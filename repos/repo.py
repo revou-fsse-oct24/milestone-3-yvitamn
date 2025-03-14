@@ -7,7 +7,9 @@ class UserRepository(DummyBaseRepository):
         super().__init__(model=User, collection_name='users')
       
     def find_by_token(self, token):
-        return next((u for u in self.collection.values() if u.token == token), None)
+        return next(
+            (u for u in self.collection.values() if u.token == token)
+            , None)
 
     def find_by_username(self, username):
         return next((u for u in self.collection.values() if u.username == username), None)

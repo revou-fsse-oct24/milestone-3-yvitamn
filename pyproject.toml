@@ -9,4 +9,5 @@ dependencies = [
     "flask>=3.1.0",
     "marshmallow>=3.26.1",
     "requests>=2.32.3",
+    "watchdog>=6.0.0",
 ]
