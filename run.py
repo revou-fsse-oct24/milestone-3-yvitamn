@@ -1,9 +1,11 @@
 from flask import Flask
 from routers.app import router
+from shared.error_handlers import register_error_handlers
 
 def create_app():
     app = Flask(__name__)
     app.register_blueprint(router)
+    register_error_handlers(app)
     return app
 
 if __name__ == '__main__':

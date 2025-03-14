@@ -2,29 +2,67 @@ from db.dummy_db import dummy_db
 from repos.repo import UserRepository, AccountRepository, TransactionRepository       
 import uuid
 from models.model import User, Account, Transaction
-        
+from shared.schemas import *
+from shared.error_handlers import *
+from shared.exceptions import *
         
 #=============Services==================================
 class UserService:
-    @staticmethod
-    def register_user(user_data):
+    def __init__(self):
+        self.repo = UserRepository()
+        self.schema = UserSchema()
+        
+    def register_user(self, user_data):
+        #Validate input
+        errors = self.schema.validate(user_data)
+        if errors:
+            raise ValidationError(errors)
+        
+        #Business logic validation
+        #check username 
+        if self.repo.find_by_username(user_data['username']):
+            raise BusinessRuleViolation("Username already exists")
+        
+        #Create user entity
         user = User(
             username=user_data['username'],
             email=user_data['email'],
-            password=user_data['password'],
+            pin=user_data['pin'], #hash pin later in real implementation
             first_name=user_data.get('first_name', ''),
             last_name=user_data.get('last_name', '')
-        )
-        return UserRepository.create_user(user)
+        )  
+        #Create user
+        return self.repo.create(user)
     
 class AuthService:
-    @staticmethod
-    def login(username, pin):
-        for user in dummy_db['users'].values():
-            if user.username == username and user.pin == pin:
-                user.token = str(uuid.uuid4())
-                return user
-            return None
+    #make limit for pin attemps
+    MAX_PIN_RETRIES = 3
+
+    def __init__(self):
+        self.repo = UserRepository()
+        
+    def login(self, username, pin):
+        user = self.repo.find_by_username(username)   
+        
+        if not user or not self.validate_pin(user, pin):
+            raise InvalidPinError("Invalid credentials")
+            
+        user.token = str(uuid.uuid4())
+        return user
+        
+        
+    def validate_pin(self, user, pin_attempt):
+        if user.pin_retries >= self.MAX_PIN_RETRIES:
+            raise RetryExceededError("Account locked")
+            
+        if user.pin != pin_attempt:
+            user.pin_retries += 1
+            self.repo.update(user)
+            return False
+            
+        user.pin_retries = 0
+        self.repo.update(user)
+        return True
 
 class AccountService:
     @staticmethod
@@ -33,9 +71,30 @@ class AccountService:
         return AccountRepository.create_account(account)
     
 class TransactionService:
-    @staticmethod
-    def create_transaction(user, transaction_data):
-        #Validation transaction type
+    def __init__(self):
+        self.repo = TransactionRepository()
+        self.repo = AccountRepository()
+        self.schema = TransactionSchema()
+        
+    def create_transaction(self, user, transaction_data):
+        #Validate input
+        errors = self.schema.validate(transaction_data)
+        if errors:
+            raise ValidationError(errors)
+        
+        transaction_type = 
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         transaction_type = transaction_data.get('type')
         if transaction_type not in ['deposit', 'withdrawal', 'transfer']:
             return None, "Invalid transaction type"

@@ -5,7 +5,14 @@ from datetime import datetime
 from db.dummy_db import dummy_db
 from functools import wraps
 
-        
+#contoh
+# @router.route('/transactions', methods=['POST'])
+# @authenticate
+# @pin_protected
+# def create_transaction(user):
+#     data = TransactionSchema().load(request.json)
+#     # ... rest of the code
+     
 #========================API Endpoints===========================
 
 router = Blueprint('router', __name__)
