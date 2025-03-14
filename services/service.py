@@ -6,7 +6,7 @@ from shared.schemas import *
 from shared.error_handlers import *
 
         
-#=============Services==================================
+#=============User Service==================================
 class UserService:
     def __init__(self):
         self.repo = UserRepository()
@@ -34,6 +34,9 @@ class UserService:
         #Create user
         return self.repo.create(user)
     
+    
+
+#=================================Auth Service====================   
 class AuthService:
     #make limit for pin attemps
     # MAX_PIN_RETRIES = 3
@@ -66,6 +69,7 @@ class AuthService:
     #     return True
 
 
+#=================================Account Service====================
 class AccountService:
     def __init__(self):
         self.repo = AccountRepository()
@@ -84,9 +88,9 @@ class AccountService:
                 code=400
             )
         
-    # Create account 
+    # Create account with consecutive account_number
         account = Account(
-            user_id=user_id,
+            user_id=user_id, # UUID from authenticated user
             account_type=account_type,
         )
         return self.repo.create(account)
@@ -103,7 +107,7 @@ class AccountService:
             raise InvalidAccountError("Account doesn't belong to user")
     
     
-    
+#=================================Transaction Service====================    
 class TransactionService:
     def __init__(self):
         self.repo = TransactionRepository()

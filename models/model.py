@@ -22,17 +22,15 @@ class User:
     
 class Account:
     def __init__(self, user_id, account_type):
-        self.id = str(uuid.uuid4())
-        self.account_number = self._generate_account_number()
-        self.user_id = user_id
+        self.id = str(uuid.uuid4()) #for account_id
+        self.account_number = None # will be set by repo
+        self.user_id = user_id # UUID from User model
         self.account_type = account_type
         self.balance = 0.0
         self.is_active = True
         self.created_at = datetime.now()
         self.updated_at = datetime.now()
         
-    def _generate_account_number(self):
-        return str(uuid.uuid4().int)[:12]
     
 class Transaction:
     def __init__(self, transaction_type, amount, from_account_id=None, to_account_id=None, description=""):

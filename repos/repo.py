@@ -16,7 +16,14 @@ class UserRepository(DummyBaseRepository):
 class AccountRepository(DummyBaseRepository):
     def __init__(self):
         super().__init__(model=Account, collection_name='accounts')
+        self._next_account_number = 100000000000
         
+    def create(self, account):
+        # Assign consecutive account number
+        account.account_number = str(self._next_account_number).zfill(12)
+        self._next_account_number += 1
+        self.collection[account.id] = account
+        return account
     
     def find_by_user(self, user_id):
         return [acc for acc in self.collection.values() if acc.user_id == user_id]
