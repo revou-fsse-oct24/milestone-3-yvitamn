@@ -1,9 +1,8 @@
-<!-- [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/OEA-wQat) -->
 
 
-# UML Activity Diagram (RevoBank)
-## Purpose of Each Diagram
-
+<!-- # UML Activity Diagram (RevoBank)
+## Purpose of Each Diagram -->
+<!-- 
 1. The Login activity diagram visualize the flow of the login process.
 - Begin the Login process   
    - User submitting login credentials
@@ -33,11 +32,11 @@
                         - valid: directly update to the bank system database
                         - invalid: bank system will check the payment status, if failed then update to database
      - Invalid balance
-        - Confirmation message to user "Insufficient Balance" and end the process
+        - Confirmation message to user "Insufficient Balance" and end the process -->
 
 
-## Key decisions and Processes Represented 
-1. Login 
+<!-- ## Key decisions and Processes Represented  -->
+<!-- 1. Login 
     - Decision : #### is the username & password Valid?
         -   Yes = System generate token and check the token (decision), token created and redirect to dashboard
         - No = Display confirmation to user "Invalid Credentials" 
@@ -82,17 +81,55 @@ More detail Flow
     - if insufficient record payment failed+send error message--> back to home action - and end the process
 - process payment action, decision isSuccess?
     - if yes put fork of send success notifs+update transaction records, payment success in user swimlane, end process
-    - if failed , send failed notif, user can try retry the payment process
+    - if failed , send failed notif, user can try retry the payment process -->
 
-## UML Activity Diagrams
-#### The UML activity diagrams were created using draw.io
+<!-- ## UML Activity Diagrams
+#### The UML activity diagrams were created using draw.io -->
 
 <!-- ### Registration 
 ![Registration](./assets/images/registrationdiagram.png) -->
 
-### Login 
-![Login](./assets/images/logindiagram.png)
 
-### Transaction Handling 
-![Transaction](./assets/images/transactiondiagram.png)
+<!-- ![Login](./assets/images/logindiagram.png) -->
 
+<!-- ![Transaction](./assets/images/transactiondiagram.png) -->
+
+#RevoBank RESTful API
+
+A RESTful API for the RevoBank application with User, Account, and Transaction management.
+
+###Features
+User Management: Create, retrieve, and update user profiles
+Account Management: Create, retrieve, update, and delete bank accounts
+Transaction Management: Process and retrieve transaction records
+
+###Setup and Installation
+1. Create a virtual environment:
+
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+Install dependencies using uv:
+
+uv pip install -r requirements.txt
+Run the application:
+
+python app.py
+
+###API Endpoints
+
+1. User Management
+POST /users: Create a new user account
+GET /users/me: Retrieve current user profile
+PUT /users/me: Update current user profile
+
+2. Account Management
+GET /accounts: List all accounts
+GET /accounts/:id: Get account details
+POST /accounts: Create a new account
+PUT /accounts/:id: Update account details
+DELETE /accounts/:id: Delete an account
+
+3. Transaction Management
+GET /transactions: List all transactions
+GET /transactions/:id: Get transaction details
+POST /transactions: Create a new transaction

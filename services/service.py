@@ -47,7 +47,7 @@ class AuthService:
         #     raise InvalidPinError("Invalid credentials")
           
         if user and user.pin == pin:       
-            user.token = str(uuid.uuid4()) #Genereate UUID token
+            user.token = str(uuid.uuid4()) #Generate UUID token
             self.repo.update(user)
             return user
         return None       
@@ -65,6 +65,7 @@ class AuthService:
     #     self.repo.update(user)
     #     return True
 
+
 class AccountService:
     def __init__(self):
         self.repo = AccountRepository()
@@ -72,26 +73,36 @@ class AccountService:
         
     def create_account(self, user_id, account_type):
         # Validate user exists
-        if not self.user_repo.find_by_id(user_id):
+        if not self.repo.find_by_id(user_id):
             raise NotFoundError("User not found")
     
-    # Create account with UUID
+        # Validate account type
+        valid_account_types = ['checking', 'savings', 'credit']  # Example types
+        if account_type not in valid_account_types:
+            raise BusinessRuleViolation(
+                description=f"Invalid account type: {account_type}. Valid types are: {', '.join(valid_account_types)}",
+                code=400
+            )
+        
+    # Create account 
         account = Account(
             user_id=user_id,
             account_type=account_type,
-            account_number=str(uuid.uuid4().int)[:12]  # 12-digit account number
         )
-        return self.account_repo.create(account)
+        return self.repo.create(account)
     
     def get_user_accounts(self, user_id):
-        return self.account_repo.find_by_user(user_id)
+        return self.repo.find_by_user(user_id)
     
     def get_account_by_id(self, user_id, account_id):
         # Verify account exists and belongs to user
-        account = self.account_repo.find_by_id(account_id)
-        if not account or account.user_id != user_id:
+        account = self.repo.find_by_id(account_id)
+        if not account:
             raise NotFoundError("Account not found")
-        return account
+        if account.user_id != user_id:
+            raise InvalidAccountError("Account doesn't belong to user")
+    
+    
     
 class TransactionService:
     def __init__(self):
