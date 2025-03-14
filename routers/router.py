@@ -36,11 +36,11 @@ def authenticate(func):
         
         # Extract the token value 
         token = token.replace('Bearer ', '', 1)
-        print(f"Cleaned token: {token}")     
+        # print(f"Cleaned token: {token}")     
 
         user_repo = UserRepository()
         user = user_repo.find_by_token(token)
-        print(f"Found user: {user}") 
+        # print(f"Found user: {user}") 
         if not user:
             raise InvalidTokenError("Invalid authentication token")
             
@@ -50,6 +50,7 @@ def authenticate(func):
     
 #==========================User Endpoints===================
 @router.route('/users', methods=["GET","POST","PUT","DELETE"])
+@authenticate
 def handle_users():
     # data = request.get_json()
     service = UserService()
@@ -79,11 +80,35 @@ def handle_users():
             except BusinessRuleViolation as e:
                 return jsonify({"success": False, "error": str(e)}), 400
                 
-        case "put" | "delete":
-            return jsonify({"success": False, "error": "Method not implemented"}), 501
-            
-        case _:
-            return jsonify({"success": False, "error": "Method not allowed"}), 405
+        case "put":
+            data = request.get_json()
+            try:
+                updated_user = service.update_user(
+                    user.id,
+                    data.get('username'),
+                    data.get('email'),
+                    data.get('pin')
+                )
+                return jsonify({
+                    "success": True,
+                    "data": {
+                        "id": updated_user.id,
+                        "username": updated_user.username,
+                        "email": updated_user.email
+                    }
+                })
+            except BusinessRuleViolation as e:
+                return jsonify({"success": False, "error": str(e)}), 400
+                
+        case "delete":
+            try:
+                service.delete_user(user.id)
+                return jsonify({
+                    "success": True,
+                    "message": "User deleted successfully"
+                })
+            except BusinessRuleViolation as e:
+                return jsonify({"success": False, "error": str(e)}), 400
 
 
 #==============================Auth endpoint=========================
@@ -125,24 +150,35 @@ def handle_user_profile(user):
 
 
 #===========================Account Endpoints===================
-@router.route('/accounts', methods=["GET","POST","PUT","DELETE"])
+@router.route('/accounts', methods=["GET","POST"])
+@router.route('/accounts/<account_id>', methods=["GET","POST","PUT","DELETE"])
 @authenticate
-def handle_accounts(user):
+def handle_accounts(user, account_id=None):
     # data = request.get_json()
     service = AccountService()
     match request.method.lower():
         case "get":
-            accounts = service.get_user_accounts(user.id)
-            return jsonify({
-                "success": True,
-                "data": [{
-                    "id": acc.id,
-                    "account_number": acc.account_number,
-                    # "account_type": acc.account_type,
-                    "balance": acc.balance,
-                    # "created_at": acc.created_at.isoformat()
-                } for acc in accounts]
-            })
+            if account_id:
+                account = service.get_account_by_id(user.id, account_id)
+                return jsonify({
+                    "success": True,
+                    "data": {
+                        "id": account.id,
+                        "account_number": account.account_number,
+                        "balance": account.balance,
+                        "account_type": account.account_type
+                    }
+                })
+            else:
+                accounts = service.get_user_accounts(user.id)
+                return jsonify({
+                    "success": True,
+                    "data": [{
+                        "id": acc.id,
+                        "account_number": acc.account_number,
+                        "balance": acc.balance
+                    } for acc in accounts]
+                })
             
         case "post":
             data = request.get_json()
@@ -155,62 +191,73 @@ def handle_accounts(user):
                         "account_number": account.account_number
                     }
                 }), 201
-            except (BusinessRuleViolation, InvalidAccountError) as e:
+            except BusinessRuleViolation as e:
                 return jsonify({"success": False, "error": str(e)}), 400
                 
-        case "put" | "delete":
-            return jsonify({"success": False, "error": "Method not implemented"}), 501
-            
-        case _:
-            return jsonify({"success": False, "error": "Method not allowed"}), 405
+        case "put":
+            data = request.get_json()
+            try:
+                updated_account = service.update_account(
+                    user.id,
+                    account_id,
+                    data.get('account_type'),
+                    data.get('balance')
+                )
+                return jsonify({
+                    "success": True,
+                    "data": {
+                        "id": updated_account.id,
+                        "account_type": updated_account.account_type,
+                        "balance": updated_account.balance
+                    }
+                })
+            except BusinessRuleViolation as e:
+                return jsonify({"success": False, "error": str(e)}), 400
+                
+        case "delete":
+            try:
+                service.delete_account(user.id, account_id)
+                return jsonify({
+                    "success": True,
+                    "message": "Account deleted successfully"
+                })
+            except BusinessRuleViolation as e:
+                return jsonify({"success": False, "error": str(e)}), 400
 
-
-@router.route('/accounts/<account_id>', methods=['GET'])
-@authenticate
-def get_an_account(user, account_id):
-    service = AccountService()
-    accounts = service.get_user_accounts(user.id)  
-     
-    try:
-        # Get specific account with ownership validation
-        account = service.get_account_by_id(user.id, account_id)
-        return jsonify({
-            "success": True,
-            "message": "Account details retrieved",
-            "data": {
-                "id": account.id,
-                "account_number": account.account_number,
-                "account_type": account.account_type,
-                "balance": account.balance,
-                "created_at": account.created_at.isoformat(),
-                "updated_at": account.updated_at.isoformat()
-            }
-        })
-    except NotFoundError as e:
-        return jsonify({"success": False, "error": e.description}), 404
-    except InvalidAccountError as e:
-        return jsonify({"success": False, "error": e.description}), 403
 
 
 
 #===========================Transaction Endpoints===================
-@router.route('/transactions', methods=["GET","POST","PUT","DELETE"])
+@router.route('/transactions', methods=["GET","POST"])
+@router.route('/transactions/<transaction_id>', methods=["GET","POST","PUT","DELETE"])
 @authenticate 
 # @pinprotected should be here
-def handle_transactions(user):
+def handle_transactions(user, transaction_id=None):
     # data = request.get_json()
     service = TransactionService()
     match request.method.lower():
         case "get":
-            transactions = service.get_user_transaction(user.id)
-            return jsonify({
-                "success": True,
-                "data": [{
-                    "id": t.id,
-                    "amount": t.amount,
-                    "type": t.transaction_type
-                } for t in transactions]
-            })
+            if transaction_id:
+                transaction = service.get_transaction_by_id(user.id, transaction_id)
+                return jsonify({
+                    "success": True,
+                    "data": {
+                        "id": transaction.id,
+                        "amount": transaction.amount,
+                        "type": transaction.transaction_type,
+                        "status": transaction.status
+                    }
+                })
+            else:
+                transactions = service.get_user_transaction(user.id)
+                return jsonify({
+                    "success": True,
+                    "data": [{
+                        "id": t.id,
+                        "amount": t.amount,
+                        "type": t.transaction_type
+                    } for t in transactions]
+                })
             
         case "post":
             data = request.get_json()
@@ -226,32 +273,33 @@ def handle_transactions(user):
             except BusinessRuleViolation as e:
                 return jsonify({"success": False, "error": str(e)}), 400
                 
-        case "put" | "delete":
-            return jsonify({"success": False, "error": "Method not implemented"}), 501
-            
-        case _:
-            return jsonify({"success": False, "error": "Method not allowed"}), 405
-  
-
-# @router.route('/transactions', methods=['GET'])
-# @authenticate
-# def get_transactions(user):
-#     service = TransactionService()
-#     transactions = service.get_user_transaction(user.id)
-    
-#     return jsonify({
-#         "success": True,
-#         "message": f"Found {len(transactions)} transaction(s)",
-#         "data": [{
-#             "id": t.id,
-#             "type": t.transaction_type,
-#             "amount": t.amount,
-#             "from_account": t.from_account_id,
-#             "to_account": t.to_account_id,
-#             "status": t.status,
-#             "timestamp": t.created_at.isoformat()
-#     } for t in transactions]
-# })
+        case "put":
+            data = request.get_json()
+            try:
+                updated_transaction = service.update_transaction(
+                    user.id,
+                    transaction_id,
+                    data.get('status')
+                )
+                return jsonify({
+                    "success": True,
+                    "data": {
+                        "id": updated_transaction.id,
+                        "status": updated_transaction.status
+                    }
+                })
+            except BusinessRuleViolation as e:
+                return jsonify({"success": False, "error": str(e)}), 400
+                
+        case "delete":
+            try:
+                service.delete_transaction(user.id, transaction_id)
+                return jsonify({
+                    "success": True,
+                    "message": "Transaction deleted successfully"
+                })
+            except BusinessRuleViolation as e:
+                return jsonify({"success": False, "error": str(e)}), 400
 
 
 # ======================== Debug Endpoints ======================
