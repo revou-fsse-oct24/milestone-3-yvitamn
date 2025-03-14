@@ -6,9 +6,11 @@ class UserRepository(DummyBaseRepository):
     def __init__(self):
         super().__init__(model=User, collection_name='users')
       
-    
+    def find_by_token(self, token):
+        return next((u for u in self.collection.values() if u.token == token), None)
+
     def find_by_username(self, username):
-        return next((u for u in self.users.values() if u.username == username), None)
+        return next((u for u in self.collection.values() if u.username == username), None)
 
 
 class AccountRepository(DummyBaseRepository):
@@ -17,7 +19,7 @@ class AccountRepository(DummyBaseRepository):
         
     
     def find_by_user(self, user_id):
-        return [acc for acc in self.accounts.values() if acc.user_id == user_id]
+        return [acc for acc in self.collection.values() if acc.user_id == user_id]
 
 
 class TransactionRepository(DummyBaseRepository):
@@ -28,7 +30,7 @@ class TransactionRepository(DummyBaseRepository):
     def find_by_user(self, user_id):
         #Get account ID's with access AccountRepository through instance
         account_repo = AccountRepository()
-        user_accounts = [acc.id for acc in self.accounts.values() if acc.user_id == user_id]
+        user_accounts = [acc.id for acc in self.collection.values() if acc.user_id == user_id]
         
         return [
             t for t in self.transactions.values() 

@@ -6,10 +6,7 @@ from services.service import (
     AuthService,
     AccountService,    
 )    
-from repos.repo import (
-    
-    UserRepository
-)    
+from repos.repo import UserRepository
 from shared.exceptions import *
 from shared.error_handlers import *
 from datetime import datetime
@@ -35,9 +32,10 @@ def authenticate(func):
     def wrapper(*args, **kwargs):
         token = request.headers.get('Authorization')
         if not token:
-            raise UnAuthorizedError("Missing authentication token")
+            raise UnauthorizedError("Missing authentication token")
             
-        user = UserRepository().find_by_token(token)
+        user_repo = UserRepository()
+        user = user_repo.find_by_token(token)
         if not user:
             raise InvalidTokenError("Invalid authentication token")
             
@@ -52,12 +50,17 @@ def register():
     service = UserService()
     
     try:
+         # Register user and get the user object
         user = service.register_user(data)
+        
+        # Return the user data in the response
         return jsonify({
             "id": user.id,
             "username": user.username,
             "email": user.email,
-            "created_at": user.created_at.isoformat()}), 201    
+            "created_at": user.created_at.isoformat(),  
+            "full_name": user.full_name
+            }), 201  # Return the automatically generated full_name
     except BusinessRuleViolation as e:
         return jsonify({"error": str(e)}), 400
 
@@ -86,7 +89,6 @@ def get_profile(user):
         "last_name": user.last_name,
         "created_at": user.created_at.isoformat()
     })
-
 
 
 # Account Endpoints

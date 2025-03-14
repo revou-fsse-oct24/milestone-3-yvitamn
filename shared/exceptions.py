@@ -1,5 +1,17 @@
 from werkzeug.exceptions import HTTPException
 
+class UnauthorizedError(HTTPException):
+    code = 401
+    description = "Authentication required"
+
+class AuthenticationError(HTTPException):
+    code = 401
+    description = "Invalid credentials"
+
+class InvalidTokenError(HTTPException):
+    code = 401
+    description = "Invalid authentication token"
+    
 class InvalidPinError(HTTPException):
     code = 401
     description = "Invalid PIN"

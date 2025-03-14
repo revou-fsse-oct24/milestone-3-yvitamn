@@ -4,7 +4,7 @@ import uuid
 from models.model import User, Account, Transaction
 from shared.schemas import *
 from shared.error_handlers import *
-from shared.exceptions import *
+
         
 #=============Services==================================
 class UserService:
@@ -109,7 +109,7 @@ class TransactionService:
         amount = float(transaction_data['amount'])
         
         # Generate UUID for transaction
-        transaction_id = str(uuid.uuid4())
+        # transaction_id = str(uuid.uuid4())
         
         #Get related accounts & validate
         from_account = self._validate_source_account(user, transaction_data)
@@ -130,29 +130,29 @@ class TransactionService:
             
             #Create transaction record
             transaction = Transaction(
-                id=transaction_id,
+                # id=transaction_id,
                 transaction_type = transaction_type,
                 amount=amount,
                 from_account_id=from_account.id,
                 to_account_id=to_account.id if to_account else None,
-                status='completed',
                 description=transaction_data.get('description', '')
             )
+            transaction.status = 'completed'
             
-            self.repo.save(transaction)
+            self.repo.create(transaction)
             return transaction
     
         except Exception as e:
              # Create failed transaction record
                 transaction = Transaction(
-                    id=transaction_id,
+                    # id=transaction_id,
                     transaction_type = transaction_type,
                     amount=amount,
                     status='failed',
                     description=str(e)
                 )
-                self.repo.save(transaction)
-                raise          
+                self.repo.create(transaction)
+                raise TransactionFailedError(str(e))       
         
     def _validate_source_account(self, user, data):
         if data['type'] in ['withdrawal', 'transfer']:
@@ -176,17 +176,16 @@ class TransactionService:
         try:
             if transaction_type == 'deposit':
                 to_account.balance += amount
+                self.repo.update(to_account)
             elif transaction_type == 'withdrawal':
                 from_account.balance -= amount
+                self.repo.update(from_account)
             elif transaction_type == 'transfer':
                 from_account.balance -= amount
                 to_account.balance += amount
-                
-            
-            self.repo.update(from_account)
-            if to_account:
+                self.repo.update(from_account)
                 self.repo.update(to_account)
-                
+                          
         except Exception as e:
             raise TransactionFailedError(f"Balance update failed: {str(e)}")     
         

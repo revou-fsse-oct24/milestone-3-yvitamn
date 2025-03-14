@@ -16,6 +16,9 @@ class User:
         self.updated_at = datetime.now()
         self.token = None
     
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}".strip()
     
 class Account:
     def __init__(self, user_id, account_type):
@@ -31,7 +34,7 @@ class Account:
     
 class Transaction:
     def __init__(self, transaction_type, amount, from_account_id=None, to_account_id=None, description=""):
-        self.id = str(uuid.uuid4())
+        self.id = str(uuid.uuid4()) # Auto-generated UUID
         self.transaction_type = transaction_type #deposit, withdrawal, transfer
         self.amount = amount
         self.from_account_id = from_account_id
