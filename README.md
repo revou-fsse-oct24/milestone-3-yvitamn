@@ -78,7 +78,8 @@ More detail Flow
         - after enter pin check first the pin isValid?
             - if yes process the payment
             - if no send error and receive error -> retry enter pin
-    - if insufficient record payment failed+send error message--> back to home action - and end the process
+    - if insufficient record payment failed+send error message-> 
+    back to home action - and end the process
 - process payment action, decision isSuccess?
     - if yes put fork of send success notifs+update transaction records, payment success in user swimlane, end process
     - if failed , send failed notif, user can try retry the payment process -->
@@ -104,16 +105,27 @@ Account Management: Create, retrieve, update, and delete bank accounts
 Transaction Management: Process and retrieve transaction records
 
 ###Setup and Installation
-1. Create a virtual environment:
 
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-Install dependencies using uv:
+####Install dependencies using uv:
+1. Install uv:
 
-uv pip install -r requirements.txt
-Run the application:
+uv python list
+uv python install 3.11.11
+uv python pin 3.11.11
+uv init 
+uv run python --version
 
-python app.py
+####Create a virtual environment:
+
+2. Install dependencies:
+uv add flask
+uv add requests
+uv add marshmallow
+uv add watchdog
+
+3. Run the application:
+uv run python run.py
+flask --app run run --port 5000 --reload --debug
 
 ###API Endpoints
 

@@ -34,7 +34,37 @@ class UserService:
         #Create user
         return self.repo.create(user)
     
-    
+    def get_user_by_id(self, user_id):
+        user = self.repo.find_by_id(user_id)
+        if not user:
+            raise NotFoundError("User not found")
+        return user
+
+    def get_all_users(self):
+        return self.repo.find_all()
+
+    def update_user(self, user_id, update_data):
+        user = self.get_user_by_id(user_id)
+        
+        # Example update logic
+        if 'email' in update_data:
+            if self.repo.email_exists(update_data['email'], exclude_user=user):
+                raise BusinessRuleViolation("Email already registered")
+            user.email = update_data['email']
+        
+        # Add other fields as needed
+        user.updated_at = datetime.now()
+        return self.repo.update(user)
+
+    def delete_user(self, user_id):
+        user = self.get_user_by_id(user_id)
+        
+        # Delete related accounts
+        accounts = self.account_repo.find_by_user(user_id)
+        for account in accounts:
+            self.account_repo.delete(account.id)
+            
+        self.repo.delete(user_id)
 
 #=================================Auth Service====================   
 class AuthService:

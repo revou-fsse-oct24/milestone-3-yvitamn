@@ -1,6 +1,7 @@
 from db.dummy_db import dummy_db
 from models.model import Transaction, User, Account
 from repos.base_repo import DummyBaseRepository
+from shared.error_handlers import *
 
 class UserRepository(DummyBaseRepository):
     def __init__(self):
@@ -14,6 +15,20 @@ class UserRepository(DummyBaseRepository):
     def find_by_username(self, username):
         return next((u for u in self.collection.values() if u.username == username), None)
 
+    def find_all(self):
+        return list(self.collection.values())
+    
+    def email_exists(self, email, exclude_user=None):
+        return any(
+            user.email == email 
+            for user in self.collection.values()
+            if not exclude_user or user.id != exclude_user.id
+        )
+    
+    def delete(self, user_id):
+        if user_id not in self.collection:
+            raise NotFoundError("User not found")
+        del self.collection[user_id]
 
 class AccountRepository(DummyBaseRepository):
     def __init__(self):
