@@ -6,10 +6,10 @@ import uuid
 #=============Models=========================    
 class User:
     def __init__(self, username, email, pin, first_name, last_name):
-        self.id = str(uuid.uuid4())
+        self.id = str(uuid.uuid4()) #PK
         self.username = username
         self.email = email
-        self.pin = pin
+        self.pin = pin #hash in real implementation
         self.first_name = first_name
         self.last_name = last_name
         self.created_at = datetime.now()
@@ -22,9 +22,9 @@ class User:
     
 class Account:
     def __init__(self, user_id, account_type):
-        self.id = str(uuid.uuid4()) #for account_id
+        self.id = str(uuid.uuid4()) #PK for account_id
         self.account_number = None # will be set by repo
-        self.user_id = user_id # UUID from User model
+        self.user_id = user_id # UUID from User model & FK
         self.account_type = account_type
         self.balance = 0.0
         self.is_active = True
@@ -34,11 +34,11 @@ class Account:
     
 class Transaction:
     def __init__(self, transaction_type, amount, from_account_id=None, to_account_id=None, description=""):
-        self.id = str(uuid.uuid4()) # Auto-generated UUID
+        self.id = str(uuid.uuid4()) # PK & Auto-generated UUID
         self.transaction_type = transaction_type #deposit, withdrawal, transfer
         self.amount = amount
-        self.from_account_id = from_account_id
-        self.to_account_id = to_account_id
+        self.from_account_id = from_account_id #FK
+        self.to_account_id = to_account_id  #FK
         self.description = description
         self.status = "pending"
         self.created_at = datetime.now()
