@@ -1,10 +1,16 @@
 from flask import Flask
-from routers.auth_router import router
+from routers.account_router import account_router
+from routers.auth_router import auth_router
+from routers.user_router import user_router
+from routers.transaction_router import transaction_router
 from shared.error_handlers import register_error_handlers
 
 def create_app():
     app = Flask(__name__)
-    app.register_blueprint(router)
+    app.register_blueprint(user_router)
+    app.register_blueprint(auth_router)
+    app.register_blueprint(account_router)
+    app.register_blueprint(transaction_router)
     register_error_handlers(app)
     
     # Configure auto-reload settings
@@ -18,7 +24,7 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-        
+       
     # Run with watchdog and deep monitoring
     app.run(
         host='0.0.0.0',

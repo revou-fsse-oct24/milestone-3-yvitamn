@@ -1,8 +1,40 @@
-# from functools import wraps
-# from flask import request, jsonify
-# from repos.repo import UserRepository, TokenRepository
-# from services.service import AuthService
-# from .exceptions import *
+from functools import wraps
+from flask import request, jsonify
+from repos.user_repo import UserRepository
+from services.auth_service import AuthService
+from .exceptions import *
+from .error_handlers import *
+
+
+
+#Token required decorator
+def authenticate(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        
+        # Skip authentication for registration/login routes
+        if request.path in ['/register', '/login']:
+            return f(*args, **kwargs)
+        
+        token = request.headers.get('Authorization')
+        if not token:
+            raise UnauthorizedError("Missing authentication token")
+        
+        # Extract the token value 
+        token = token.replace('Bearer ', '', 1)
+        # print(f"Cleaned token: {token}")     
+
+        user_repo = UserRepository()
+        user = user_repo.find_by_token(token)
+        # print(f"Found user: {user}") 
+        if not user:
+            raise InvalidTokenError("Invalid authentication token")
+            
+        return func(user, *args, **kwargs)
+    return wrapper
+
+
+
 
 # def get_current_user():
 #     token = request.headers.get('Authorization')

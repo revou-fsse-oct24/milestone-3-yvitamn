@@ -1,4 +1,5 @@
-from repos.transaction_repo import TransactionRepository       
+from repos.transaction_repo import TransactionRepository   
+from repos.account_repo import AccountRepository    
 import uuid
 from models.model import Transaction
 from shared.schemas import *
@@ -93,12 +94,12 @@ class TransactionService:
                 self.repo.update(to_account)
             elif transaction_type == 'withdrawal':
                 from_account.balance -= amount
-                self.repo.update(from_account)
+                self.transaction_repo.update(from_account)
             elif transaction_type == 'transfer':
                 from_account.balance -= amount
                 to_account.balance += amount
-                self.repo.update(from_account)
-                self.repo.update(to_account)
+                self.transaction_repo.update(from_account)
+                self.transaction_repo.update(to_account)
                           
         except Exception as e:
             raise TransactionFailedError(f"Balance update failed: {str(e)}")     

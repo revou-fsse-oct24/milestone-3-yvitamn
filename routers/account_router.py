@@ -1,23 +1,19 @@
 from flask import Flask, Blueprint, request, jsonify
-from models.model import User, Account, Transaction
-from services.auth_service import (
-    TransactionService,
-    UserService,
-    AuthService,
-    AccountService,    
-)    
-from repos.transaction_repo import UserRepository
+from models.model import Account
+from services.account_service import AccountService
+from repos.user_repo import UserRepository
+from shared.auth_helpers import *
 from shared.exceptions import *
 from shared.error_handlers import *
 from datetime import datetime
-from functools import wraps
+
 
 app = Flask(__name__)
-router = Blueprint('router', __name__)
+account_router = Blueprint('account', __name__)
 
 #===========================Account Endpoints===================
-@router.route('/accounts', methods=["GET","POST"])
-@router.route('/accounts/<account_id>', methods=["GET","POST","PUT","DELETE"])
+@account_router.route('/accounts', methods=["GET","POST"])
+@account_router.route('/accounts/<account_id>', methods=["GET","POST","PUT","DELETE"])
 @authenticate
 def handle_accounts(user, account_id=None):
     # data = request.get_json()

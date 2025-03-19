@@ -1,11 +1,8 @@
 
 from models.model import Account
-from repos.base_repo import DummyBaseRepository
+from .base_repo import DummyBaseRepository
 from shared.error_handlers import *
 from datetime import datetime
-
-
-
 
 
 class AccountRepository(DummyBaseRepository):
@@ -13,7 +10,7 @@ class AccountRepository(DummyBaseRepository):
         super().__init__(model=Account, collection_name='accounts')
         self._next_account_number = 100000000000
         
-    def create(self, account):
+    def create_account(self, account):
         # Assign consecutive account number
         account.account_number = str(self._next_account_number).zfill(12)
         self._next_account_number += 1

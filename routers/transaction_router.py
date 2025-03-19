@@ -1,18 +1,19 @@
 
 from flask import Flask, Blueprint, request, jsonify
 from models.model import Transaction
-from services.auth_service import TransactionService
+from services.transaction_service import TransactionService
+from shared.auth_helpers import *
 from shared.exceptions import *
 from shared.error_handlers import *
 from datetime import datetime
-from functools import wraps
+
 
 app = Flask(__name__)
-router = Blueprint('router', __name__)
+transaction_router = Blueprint('transaction', __name__)
 
 #===========================Transaction Endpoints===================
-@router.route('/transactions', methods=["GET","POST"])
-@router.route('/transactions/<transaction_id>', methods=["GET","POST","PUT","DELETE"])
+@transaction_router.route('/transactions', methods=["GET","POST"])
+@transaction_router.route('/transactions/<transaction_id>', methods=["GET","POST","PUT","DELETE"])
 @authenticate 
 # @pinprotected should be here
 def handle_transactions(user, transaction_id=None):

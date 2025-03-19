@@ -11,23 +11,56 @@ def validate_uuid(uuid_str):
     
 #=============validation schemas===========
 class UserSchema(Schema):
+    id = fields.Str(
+        validate=validate_uuid,
+        error_messages={"validator_failed": "Invalid UUID format"}
+    )
     username = fields.Str(
         required=True,
-        validate=validate.Length(min=4, max=20,
-        error="Username must be between 4-20 characters")
+        validate=[
+            validate.Length(min=4, max=20),
+            validate.Regexp(r'^[a-zA-Z0-9_]+$',
+                            error="Username can only contain letters, numbers, and underscores")
+        ],
+        error_messages={
+            "required": "Username is required",
+            "invalid": "Invalid username format"
+        }
     )
-    email = fields.Email(required=True)
+    email = fields.Email(
+        required=True,
+        error_messages={
+            "required": "Email is required",
+            "invalid": "Invalid email format"
+        }
+    )
     pin = fields.Str(
         required=True,
         validate=[
-            validate.Length(min=4, max=6,
-            error="PIN must be 4-6 digits"),
-            validate.Regexp(r'^\d+$',
-            error="PIN must contain only numbers")
-        ]
+            validate.Length(min=4, max=6),
+            validate.Regexp(r'^\d+$', error="PIN must contain only numbers")
+        ],
+        error_messages={
+            "required": "PIN is required",
+            "invalid": "Invalid PIN format"
+        }
     )
-    first_name = fields.Str(validate=validate.Length(max=50))
-    last_name = fields.Str(validate=validate.Length(max=50))
+    first_name = fields.Str(
+        validate=validate.Length(max=50),
+        error_messages={"invalid": "First name must be a string"}
+    )
+    last_name = fields.Str(
+        validate=validate.Length(max=50),
+        error_messages={"invalid": "Last name must be a string"}
+    )
+
+    @validates_schema
+    def validate_pin_complexity(self, data, **kwargs):
+        """Additional PIN validation"""
+        pin = data.get('pin', '')
+        if len(set(pin)) == 1:
+            raise ValidationError("PIN cannot be all identical digits", field_name="pin")
+    
     
 class LoginSchema(Schema):
     username = fields.Str(required=True)

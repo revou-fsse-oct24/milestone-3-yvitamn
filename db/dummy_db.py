@@ -1,7 +1,8 @@
 from uuid import uuid4
 from datetime import datetime
+# from .database import Database
 
-class DummyDB:
+class DummyDB: #(Database)
     def __init__(self):
         self.reset()
         
@@ -10,4 +11,4 @@ class DummyDB:
         self.accounts = {}
         self.transactions = {}
 
-dummy_db = DummyDB()
+dummy_db_instance = DummyDB()

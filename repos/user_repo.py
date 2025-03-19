@@ -1,6 +1,7 @@
 
 from models.model import User
-from repos.base_repo import DummyBaseRepository
+from .base_repo import DummyBaseRepository
+from .account_repo import AccountRepository
 from shared.error_handlers import *
 from datetime import datetime
 
@@ -14,7 +15,8 @@ class UserRepository(DummyBaseRepository):
             , None)
 
     def find_by_username(self, username):
-        return next((u for u in self.collection.values() if u.username == username), None)
+        return next((u for u in self.collection.values() 
+                     if u.username == username), None)
 
     def find_all(self):
         return list(self.collection.values())
@@ -27,12 +29,12 @@ class UserRepository(DummyBaseRepository):
         )
     
     def get_users_with_balance(self, min_balance: float) -> list[User]:
-        account_repo = AccountRepository()
+        account_repoo = AccountRepository()
         users = []
         for user in self.collection.values():
             total = sum(
                 acc.balance 
-                for acc in account_repo.find_by_user(user.id)
+                for acc in account_repoo.find_by_user(user.id)
             )
             if total >= min_balance:
                 users.append(user)

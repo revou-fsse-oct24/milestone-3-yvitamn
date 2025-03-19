@@ -1,9 +1,9 @@
 
 from models.model import Transaction
-from repos.base_repo import DummyBaseRepository
+from .base_repo import DummyBaseRepository
+from .account_repo import AccountRepository
 from shared.error_handlers import *
-from datetime import datetime
-
+from datetime import datetime, timedelta
 
 
 
@@ -51,3 +51,50 @@ class TransactionRepository(DummyBaseRepository):
             del self.collection[transaction_id]
             return True
         return False
+    
+    
+    def find_recent(self, days: int = 7) -> list[Transaction]:
+        cutoff = datetime.now() - timedelta(days=days)
+        return [
+            t for t in self.collection.values()
+            if t.created_at > cutoff
+        ]
+
+    def get_summary(self, account_id: str) -> dict:
+        transactions = self.find_by_account(account_id)
+        return {
+            "total_deposits": sum(
+                t.amount for t in transactions
+                if t.to_account_id == account_id
+            ),
+            "total_withdrawals": sum(
+                t.amount for t in transactions
+                if t.from_account_id == account_id
+            ),
+            "last_transaction": max(
+                [t.created_at for t in transactions],
+                default=None
+            )
+        }
+
+    def revert_transaction(self, transaction_id: str) -> Transaction:
+        transaction = self.find_by_id(transaction_id)
+        if not transaction:
+            raise NotFoundError("Transaction not found")
+            
+        account_repo = AccountRepository()
+        
+        # Reverse the transaction
+        if transaction.from_account_id:
+            account_repo.update_balance(
+                transaction.from_account_id,
+                transaction.amount
+            )
+        if transaction.to_account_id:
+            account_repo.update_balance(
+                transaction.to_account_id,
+                -transaction.amount
+            )
+            
+        transaction.status = "reverted"
+        return transaction
