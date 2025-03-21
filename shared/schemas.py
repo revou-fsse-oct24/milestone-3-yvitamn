@@ -66,9 +66,22 @@ class LoginSchema(Schema):
     username = fields.Str(required=True)
     pin = fields.Str(
         required=True, 
-        validate=validate.Length(min=4, max=6)
-        )
-    
+        error_messages={"required": "Username is required"}
+    )
+    pin = fields.Str(
+        required=True,
+        validate=validate.Length(
+            min=4, 
+            max=6,
+            error="PIN must be 4-6 digits"
+        ),
+        error_messages={"required": "PIN is required"}
+    )
+    @validates_schema
+    def validate_pin_format(self, data, **kwargs):
+        if not data['pin'].isdigit():
+            raise ValidationError("PIN must contain only numbers", field_name="pin")
+        
 class TransactionSchema(Schema):
     amount = fields.Decimal(
         required=True,

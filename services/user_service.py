@@ -18,9 +18,11 @@ class UserService:
         if errors:
             raise ValidationError(errors)
         
+        username = user_data['username'].strip().lower()
+        
         #Business logic validation
-        #check username 
-        if self.user_repo.find_by_username(user_data['username']):
+        #check existence
+        if self.user_repo.find_by_username(username):
             raise BusinessRuleViolation("Username already exists")
         
         #Create user entity
@@ -57,7 +59,7 @@ class UserService:
             raise NotFoundError("User not found")
         return user
 
-    def get_all_users(self):
+    def get_all_users(self) -> list[User]:
         return self.user_repo.find_all()
 
     def update_user(self, user_id, update_data):

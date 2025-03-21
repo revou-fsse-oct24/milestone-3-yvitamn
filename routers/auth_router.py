@@ -1,12 +1,11 @@
 from flask import Flask, Blueprint, request, jsonify
+from db.dummy_db import DummyDB
 from models.model import User, Account, Transaction
 from services.auth_service import AuthService
 from shared.exceptions import *
 from shared.error_handlers import *
 from shared.auth_helpers import *
 from datetime import datetime
-
-
 
 #contoh
 # @router.route('/transactions', methods=['POST'])
@@ -28,19 +27,30 @@ def handle_login():
     data = request.get_json()   
     
     try:
-        user = service.login(data['username'], data['pin'])
-        # print(f"DEBUG: Generated token {user.token} for user {user.id}")
+        # Required data check
+        if not data:
+            return jsonify({"success": False, "error": "No data provided"}), 400
+        
+        user = service.login(data)
+        print(f"DEBUG: Generated token {user.token} for user {user.id}")
         return jsonify({
             "success": True,
-            "message": "Login successful",
-            "data": {
-                "access_token": user.token,
-                "user_id": user.id
-            }
-        })
+            "token": user.token,
+            "user_id": user.id
+        }), 200
+        
+    except ValidationError as e:
+        return jsonify({
+            "success": False,
+            "error": e.message,
+            "details": e.errors
+        }), 400
+    
     except AuthenticationError as e:
         return jsonify({"success": False, "error": str(e)}), 401
-
+    except Exception as e:
+        return jsonify({"success": False, "error": "Login failed"}), 500
+    
 @auth_router.route('/users/me', methods=['GET'])
 @authenticate
 def handle_user_profile(user):
@@ -59,20 +69,17 @@ def handle_user_profile(user):
     })
 
 
-
+@auth_router.route('/debug/users', methods=["GET"])
+def handle_debug_users():
+    return jsonify({
+        "users": [
+            {"id": u.id, "username": u.username} 
+            for u in DummyDB.users.values()
+        ]
+    })
 
 # ======================== Debug Endpoints ======================
 
-
-    
-@auth_router.route('/debug/users', methods=["GET"])
-def handle_debug_users():
-    users = UserRepository().collection.values()
-    return jsonify([{
-        "id": u.id,
-        "token": u.token
-    } for u in users])
-    
            
 if __name__ == "__main__":
     # Run with watchdog and deep file monitoring

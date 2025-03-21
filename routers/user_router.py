@@ -1,3 +1,4 @@
+import os
 from flask import Flask, Blueprint, request, jsonify
 from models.model import User
 from repos.user_repo import UserRepository
@@ -16,20 +17,29 @@ user_router = Blueprint('user', __name__)
 service = UserService()
  
 #==========================User Endpoints===================
-
+# Automatically enforce security
+# if os.getenv('FLASK_ENV') == 'production':
 @user_router.route('/users', methods=["GET"])
 @authenticate
-def get_all_users_route():
+# @admin_required
+def get_all_users_route(user: User):
+     # Temporary development access
+    if os.getenv('FLASK_ENV') != 'development':
+        raise ForbiddenError("Access restricted in production")
+
+    users = UserService().get_all_users()
+    return jsonify([u.to_dict() for u in users])
+    # service = UserService()
        
-        users = service.get_all_users()
-        return jsonify([{
-                "id": u.id,
-                "username": u.username,
-                "email": u.email
-        } for u in users])
+    # users = service.get_all_users()
+    # return jsonify([{
+    #             "id": u.id,
+    #             "username": u.username,
+    #             "email": u.email
+    #             "created_at": u.created_at.isoformat()
+    # } for u in users])
             
 @user_router.route('/register', methods=["POST"])
-# @authenticate
 def register_user_route():
     try:    
         data = request.get_json()

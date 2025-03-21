@@ -25,8 +25,8 @@ T = TypeVar('T')
 #     def find_by_id(self, entity_id: str) -> Optional[T]:
 #         raise NotImplementedError
 
-print(type(dummy_db_instance))
-print(dummy_db_instance.users)
+# print(type(dummy_db_instance))
+# print(dummy_db_instance.users)
 
 class DummyBaseRepository(Generic[T]):
     def __init__(self, model: Type[T], collection_name: str):

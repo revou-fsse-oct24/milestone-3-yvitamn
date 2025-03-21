@@ -5,9 +5,10 @@ import bcrypt
 
 #=============Models=========================    
 class User:
-    def __init__(self, username, email, pin, first_name, last_name):
+    def __init__(self, username, email, pin, first_name, last_name):        
+        
         self.id = str(uuid.uuid4()) #PK
-        self.username = username
+        self.username = username.strip().lower()
         self.email = email
         self.pin_hash = self._hash_pin(pin) #hash in real implementation
         self.first_name = first_name
@@ -16,18 +17,26 @@ class User:
         self.updated_at = datetime.now()
         self.token = None
     
-    def _hash_pin(self, pin):
-        """Hash the PIN using bcrypt with salt."""
+    # Add PIN validation before hashing
         if not isinstance(pin, str):
-            raise ValueError("PIN must be string")
-        return bcrypt.hashpw(
-            pin.encode('utf-8'),
-            bcrypt.gensalt()
-            ).decode('utf-8')
+            raise ValueError("PIN must be string type")
+            
+        self.pin_hash = self._hash_pin(str(pin)) #string conversion
+        
+    def _hash_pin(self, pin: str) -> str:
+        """Hash the PIN using bcrypt with salt."""
+        print(f"Hashing PIN: {pin} (Type: {type(pin)})")
+        hashed = bcrypt.hashpw(pin.encode('utf-8'), bcrypt.gensalt())
+        print(f"Generated hash: {hashed.decode()}")
+        return hashed.decode('utf-8')
 
-    def verify_pin(self, pin):
+    def verify_pin(self, pin: str) -> bool:
         """Verify if the provided PIN matches the hash."""
-        return bcrypt.checkpw(pin.encode('utf-8'), self.pin_hash.encode('utf-8'))
+        print(f"Verifying PIN: {pin} against {self.pin_hash}")
+        return bcrypt.checkpw(
+            pin.encode('utf-8'), 
+            self.pin_hash.encode('utf-8')
+        )
     
     @property
     def full_name(self):

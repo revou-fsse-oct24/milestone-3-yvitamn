@@ -3,7 +3,17 @@ from werkzeug.exceptions import HTTPException
 class UnauthorizedError(HTTPException):
     code = 401
     description = "Authentication required"
+    
+class ForbiddenError(HTTPException):
+    code = 403
+    description = "Access forbidden"
+    
+class NotFoundError(HTTPException):
+    code = 404
+    description = "Resource not found"    
 
+
+#Authentication errors
 class AuthenticationError(HTTPException):
     code = 401
     description = "Invalid credentials"
@@ -16,17 +26,13 @@ class InvalidPinError(HTTPException):
     code = 401
     description = "Invalid PIN"
 
-class RetryExceededError(HTTPException):
-    code = 403
+#business logic errors
+class RetryExceededError(ForbiddenError):
     description = "Maximum retry attempts exceeded"
 
 class BusinessRuleViolation(HTTPException):
     code = 400
     description = "Business rule violation"
-
-class NotFoundError(HTTPException):
-    code = 404
-    description = "Resource not found"
 
 class InvalidAccountError(HTTPException):
     code = 400
@@ -36,8 +42,12 @@ class TransactionFailedError(HTTPException):
     code = 500
     description = "Transaction processing failed"
 
+# System errors
+class TransactionFailedError(HTTPException):
+    code = 500
+    description = "Transaction processing failed"
 
-#custom 
+#custom exceptions
 class InsufficientBalanceException(Exception):
     def __init__(self, account_id: int, balance: float):
         super().__init__(f"Account {account_id} has insufficient balance: {balance}")

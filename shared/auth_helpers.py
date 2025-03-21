@@ -14,21 +14,24 @@ def authenticate(func):
         
         # Skip authentication for registration/login routes
         if request.path in ['/register', '/login']:
-            return f(*args, **kwargs)
+            return func(*args, **kwargs)
         
+        # Extract token from headers
         token = request.headers.get('Authorization')
         if not token:
             raise UnauthorizedError("Missing authentication token")
         
-        # Extract the token value 
-        token = token.replace('Bearer ', '', 1)
+        # Clean token format
+        if token.startswith('Bearer '):
+            token = token[7:]
         # print(f"Cleaned token: {token}")     
 
+        # Validate token against users
         user_repo = UserRepository()
         user = user_repo.find_by_token(token)
-        # print(f"Found user: {user}") 
+            
         if not user:
-            raise InvalidTokenError("Invalid authentication token")
+            raise InvalidTokenError("Invalid or expired token")
             
         return func(user, *args, **kwargs)
     return wrapper

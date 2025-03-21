@@ -1,6 +1,7 @@
-from repos.user_repo import UserRepository   
+from repos.user_repo import UserRepository 
+ 
 import uuid
-from models.model import Account
+from models.model import User
 from shared.schemas import *
 from shared.error_handlers import *
 
@@ -13,16 +14,38 @@ class AuthService:
 
     def __init__(self):
         self.user_repo = UserRepository()
+        self.schemas = LoginSchema()
         
-    def login(self, username, pin):
-        user = self.user_repo.find_by_username(username)       
-        if not user or user.pin != pin:
+    def login(self, data: dict) -> User:
+        #validate input
+        errors = self.schemas.validate(data)
+        if errors:
+            raise ValidationError("Invalid login data", errors)
+        
+        # Sanitize and normalize inputs
+        username = data['username'].strip().lower()
+        pin = str(data['pin']).strip()
+
+        # Debug logging
+        print(f"Attempting login for: {username}")
+        
+        user = self.user_repo.find_by_username(username)
+        if not user:
+            print(f"User {username} not found")
             raise AuthenticationError("Invalid credentials")
-          
-        # if user and user.pin == pin: 
+        
+        # PIN verification with debugging
+        print(f"Verifying PIN for user {user.id}")
+        print(f"Stored hash: {user.pin_hash}")
+        if not user.verify_pin(pin):
+            print(f"PIN mismatch for user {user.id}")
+            raise AuthenticationError("Invalid credentials")
+        
         # Generate and store new token 
         user.token = str(uuid.uuid4()) #Generate UUID token
         self.user_repo.update(user)
+        print(f"Generated new token: {user.token}")
+        
         return user
              
         

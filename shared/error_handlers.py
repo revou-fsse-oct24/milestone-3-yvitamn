@@ -6,6 +6,7 @@ from .exceptions import *
 def register_error_handlers(app):    
     @app.errorhandler(ValidationError)
     @app.errorhandler(UnauthorizedError)
+    @app.errorhandler(ForbiddenError)
     @app.errorhandler(AuthenticationError)
     @app.errorhandler(InvalidTokenError)
     @app.errorhandler(InvalidPinError)

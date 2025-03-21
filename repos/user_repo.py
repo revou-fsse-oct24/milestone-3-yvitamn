@@ -1,4 +1,5 @@
 
+from typing import Optional
 from models.model import User
 from .base_repo import DummyBaseRepository
 from .account_repo import AccountRepository
@@ -14,9 +15,17 @@ class UserRepository(DummyBaseRepository):
             (u for u in self.collection.values() if u.token == token)
             , None)
 
-    def find_by_username(self, username):
-        return next((u for u in self.collection.values() 
-                     if u.username == username), None)
+    def find_by_username(self, username: str) -> Optional[User]:
+        """Case-insensitive search with debug logging"""
+        search_username = username.strip().lower()
+        print(f"Searching for username: '{search_username}'")
+        print(f"Existing users: {[u.username for u in self.collection.values()]}")
+        
+        return next(
+            (u for u in self.collection.values()
+             if u.username == search_username),
+            None
+        )
 
     def find_all(self):
         return list(self.collection.values())
