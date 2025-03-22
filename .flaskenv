@@ -1,0 +1,2 @@
+ADMIN_EMAIL=admin@yourdomain.dprk
+ADMIN_PIN=SuperSecurePin2024

@@ -53,6 +53,15 @@ class UserSchema(Schema):
         validate=validate.Length(max=50),
         error_messages={"invalid": "Last name must be a string"}
     )
+    # Add this new field
+    role = fields.Str(
+        dump_only=True,  # Prevent role from being set via input
+        validate=validate.OneOf(['user', 'admin']),
+        error_messages={
+            "validator_failed": "Invalid role specified"
+        }
+    )
+    
 
     @validates_schema
     def validate_pin_complexity(self, data, **kwargs):

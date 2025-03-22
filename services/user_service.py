@@ -1,3 +1,4 @@
+import os
 from repos.user_repo import UserRepository
 import uuid
 from models.model import User
@@ -36,6 +37,21 @@ class UserService:
         )  
         #Create user
         return self.user_repo.create(user)
+    
+    def create_initial_admin(self):
+        """One-time admin setup (call during app initialization)"""
+        admin_username = 'admin'
+        if not self.user_repo.find_by_username(admin_username):
+            admin = User(
+                username=admin_username,
+                email=os.getenv('ADMIN_EMAIL', 'admin@system.dprk'),
+                pin=os.getenv('ADMIN_PIN', 'secure_admin_pin'),
+                first_name='System',
+                last_name='Administrator',
+                role='admin'
+            )
+            self.user_repo.create(admin)
+            print("People's Admin created successfully!")
     
     def authenticate_user(self, username, pin):
         """

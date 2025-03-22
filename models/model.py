@@ -5,7 +5,7 @@ import bcrypt
 
 #=============Models=========================    
 class User:
-    def __init__(self, username, email, pin, first_name, last_name):        
+    def __init__(self, username, email, pin, first_name, last_name, role='user'):        
         
         self.id = str(uuid.uuid4()) #PK
         self.username = username.strip().lower()
@@ -13,9 +13,11 @@ class User:
         self.pin_hash = self._hash_pin(pin) #hash in real implementation
         self.first_name = first_name
         self.last_name = last_name
+        self.role = role
         self.created_at = datetime.now()
         self.updated_at = datetime.now()
         self.token = None
+    
     
     # Add PIN validation before hashing
         if not isinstance(pin, str):
@@ -41,6 +43,16 @@ class User:
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}".strip()
+    
+    def to_dict(self):
+        """Safe serialization (excludes sensitive fields)"""
+        return {
+            "id": self.id,
+            "username": self.username,
+            "email": self.email,
+            "created_at": self.created_at.isoformat(),
+            "role": self.role
+        }    
     
 class Account:
     def __init__(self, user_id, account_type):

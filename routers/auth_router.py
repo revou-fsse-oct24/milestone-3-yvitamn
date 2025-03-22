@@ -68,7 +68,15 @@ def handle_user_profile(user):
         }
     })
 
-
+@auth_router.route('/admin', methods=['GET'])
+@authenticate  # Requires valid token
+@admin_required  # Requires admin role
+def admin_dashboard(admin_user):
+    return jsonify({
+        "message": "Admin dashboard",
+        "data": "Sensitive admin-only data"
+    })
+    
 @auth_router.route('/debug/users', methods=["GET"])
 def handle_debug_users():
     return jsonify({

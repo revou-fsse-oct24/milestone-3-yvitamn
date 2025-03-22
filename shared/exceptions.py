@@ -38,10 +38,6 @@ class InvalidAccountError(HTTPException):
     code = 400
     description = "Invalid account"
 
-class TransactionFailedError(HTTPException):
-    code = 500
-    description = "Transaction processing failed"
-
 # System errors
 class TransactionFailedError(HTTPException):
     code = 500

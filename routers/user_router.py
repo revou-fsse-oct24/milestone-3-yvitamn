@@ -21,8 +21,8 @@ service = UserService()
 # if os.getenv('FLASK_ENV') == 'production':
 @user_router.route('/users', methods=["GET"])
 @authenticate
-# @admin_required
-def get_all_users_route(user: User):
+@admin_required
+def get_all_users_route(user: User): #admin_user
      # Temporary development access
     if os.getenv('FLASK_ENV') != 'development':
         raise ForbiddenError("Access restricted in production")
@@ -43,13 +43,14 @@ def get_all_users_route(user: User):
 def register_user_route():
     try:    
         data = request.get_json()
-        if not data:
-            return jsonify({"error": "Empty request body"}), 400
         
-        # schema = UserSchema()
-        # errors = schema.validate(data)
-        # if errors:
-        #     return jsonify({"success": False, "error": "Validation failed", "details": errors}), 400
+        #validate input 
+        schema = UserSchema()
+        errors = schema.validate(data)
+        if errors:
+            return jsonify({"success": False, "error": "Validation failed"}), 400
+        
+        data.pop('role', None)  #prevent unauthorized role assignment
         
         user = UserService().register_user(data)   
         return jsonify({
@@ -58,7 +59,8 @@ def register_user_route():
                     "id": user.id,
                     "username": user.username,
                     "email": user.email,
-                    "full_name": user.full_name
+                    "full_name": user.full_name,
+                    "role": user.role
                     }
             }), 201     
     except ValidationError as e:

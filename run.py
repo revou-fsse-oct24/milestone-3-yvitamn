@@ -1,4 +1,6 @@
+import os
 from flask import Flask
+from services.user_service import UserService
 from routers.account_router import account_router
 from routers.auth_router import auth_router
 from routers.user_router import user_router
@@ -7,6 +9,11 @@ from shared.error_handlers import register_error_handlers
 
 def create_app():
     app = Flask(__name__)
+    
+    #Initialize admin user
+    UserService().create_initial_admin()
+    
+    #Register blueprint
     app.register_blueprint(user_router)
     app.register_blueprint(auth_router)
     app.register_blueprint(account_router)
@@ -23,8 +30,10 @@ def create_app():
     return app
 
 if __name__ == '__main__':
+    
     app = create_app()
        
+    print(f"Running in {os.getenv('FLASK_ENV', 'production')} mode")
     # Run with watchdog and deep monitoring
     app.run(
         host='0.0.0.0',

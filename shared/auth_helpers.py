@@ -37,6 +37,14 @@ def authenticate(func):
     return wrapper
 
 
+#for admin auth
+def admin_required(func):
+    @wraps(func)
+    def wrapper(user, *args, **kwargs):
+        if not hasattr(user, 'role') or user.role != 'admin':
+            raise ForbiddenError("Admin privileges required")
+        return func(user, *args, **kwargs)
+    return wrapper
 
 
 # def get_current_user():
