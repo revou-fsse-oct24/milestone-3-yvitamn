@@ -53,3 +53,22 @@ class AccountRepository(DummyBaseRepository):
         from_acc.updated_at = to_acc.updated_at = datetime.now()
         
         return from_acc, to_acc
+    
+    
+    def find_by_user(self, user_id):
+        #Get account ID's with access AccountRepository through instance
+        account_repo = AccountRepository()
+        user_accounts = [acc.id for acc in self.collection.values() if acc.user_id == user_id]
+        
+        return [
+            t for t in self.transactions.values() 
+            if t.from_account_id in user_accounts 
+            or t.to_account_id in user_accounts
+        ]
+    
+    def find_by_account(self, account_id: str) -> list[Transaction]:
+        return [
+            t for t in self.collection.values()
+            if t.from_account_id == account_id
+            or t.to_account_id == account_id
+        ]  

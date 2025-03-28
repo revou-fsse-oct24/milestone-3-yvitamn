@@ -50,19 +50,28 @@ class DummyBaseRepository(BaseRepository):
         """Create users with index management"""
         #base creation logic
         if not hasattr(entity, 'id'):
-            raise ValueError("Entity must have 'id' attribute")
+            raise ValueError("Entity missing ID")
             
         if not entity.id:  
             entity.id = str(uuid.uuid4())
             
         if entity.id in self.collection:
             raise ValueError(f"{self.model.__name__} {entity.id} already exists")
-            
+        
+        # Store in collection 
         self.collection[entity.id] = entity
         
-        # Update indexes after successful creation
-        self.db.add_to_index('users', 'email', entity.email, entity.id)
-        self.db.add_to_index('users', 'username', entity.username, entity.id)
+        # Auto-index all predefined fields
+        if self.collection_name in self.db._indexes:
+            for field in self.db._indexes[self.collection_name]:
+                value = getattr(entity, field, None)
+                if value is not None:
+                    self.db.add_to_index(
+                        self.collection_name,
+                        field,
+                        value,
+                        entity.id
+                    )
              
         return entity
 
@@ -76,13 +85,52 @@ class DummyBaseRepository(BaseRepository):
         return all_items[start:end]
     
     def update(self, entity: T) -> T:
-        if entity.id not in self.collection:
+        old_entity = self.find_by_id(entity.id)
+        if not old_entity:
             raise ValueError("Entity does not exist")
+
+        # Remove old indexes
+        if self.collection_name in self.db._indexes:
+            for field in self.db._indexes[self.collection_name]:
+                old_value = getattr(old_entity, field, None)
+                if old_value is not None:
+                    self.db.remove_from_index(
+                        self.collection_name,
+                        field,
+                        old_value,
+                        entity.id
+                    )
+
+        # Update entity
         self.collection[entity.id] = entity
+
+        # Add new indexes
+        if self.collection_name in self.db._indexes:
+            for field in self.db._indexes[self.collection_name]:
+                new_value = getattr(entity, field, None)
+                if new_value is not None:
+                    self.db.add_to_index(
+                        self.collection_name,
+                        field,
+                        new_value,
+                        entity.id
+                    )
         return entity
 
+
     def delete(self, entity_id: str) -> bool:
-         return self.collection.pop(entity_id, None) is not None
+        entity = self.collection.pop(entity_id, None)
+        if entity and self.collection_name in self.db._indexes:
+            for field in self.db._indexes[self.collection_name]:
+                value = getattr(entity, field, None)
+                if value is not None:
+                    self.db.remove_from_index(
+                        self.collection_name,
+                        field,
+                        value,
+                        entity_id
+                    )
+        return entity is not None
      
      
      

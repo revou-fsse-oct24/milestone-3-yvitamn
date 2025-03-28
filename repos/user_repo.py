@@ -11,6 +11,7 @@ class UserRepository(DummyBaseRepository):
     def __init__(self):
         super().__init__(User, 'users')
                       
+                      
     def create(self, entity: User) -> User:
         # Check for existing username/email before creation
         if self.find_by_username(entity.username):
@@ -47,6 +48,7 @@ class UserRepository(DummyBaseRepository):
 
         return super().update(entity)
 
+
     #search
     #Function to get user IDs associated with a given email
     def _get_user_ids_by_email(self, email: str) -> set[str]:
@@ -61,6 +63,12 @@ class UserRepository(DummyBaseRepository):
             return self.find_by_id(next(iter(user_ids)))
         return None
 
+
+    def find_by_token(self, token: str) -> Optional[User]:
+        user_ids = self.db._indexes['users']['token'].get(token, set())
+        return self.find_by_id(next(iter(user_ids))) if user_ids else None
+
+
     #find user by email
     def find_by_email(self, email: str) -> Optional[User]:
         normalized_email = email.strip().lower()
@@ -68,6 +76,7 @@ class UserRepository(DummyBaseRepository):
         if user_ids:
             return self.find_by_id(next(iter(user_ids)))
         return None
+
 
     #find all registered users
     def find_all(self, fields: list[str] = None) -> list[dict]:
@@ -83,6 +92,7 @@ class UserRepository(DummyBaseRepository):
             for user in self.collection.values()
         ]
     
+    
     def email_exists(self, email: str, exclude_user: User = None)-> bool:
         normalized_email = email.strip().lower()
         user_ids = self.db._indexes['users']['email'].get(normalized_email, set())
@@ -95,6 +105,7 @@ class UserRepository(DummyBaseRepository):
             return any(uid != exclude_user.id for uid in user_ids)
         
         return True
+    
     
     def get_users_with_balance(self, min_balance: float) -> list[User]:
         account_repoo = AccountRepository()

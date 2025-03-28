@@ -1,3 +1,4 @@
+import re
 from marshmallow import Schema, fields, validate, validates_schema
 from uuid import UUID
 from shared.error_handlers import *
@@ -63,14 +64,28 @@ class UserSchema(Schema):
         }
     )
     
+   
 
-    @validates_schema
-    def validate_pin_complexity(self, data, **kwargs):
+    @validates_schema('pin')
+    def validate_pin_format(self, value):
         """Additional PIN validation"""
-        pin = data.get('pin', '')
-        if len(set(pin)) == 1:
+        if len(value) != 8 or not value.isdigit():
+            raise ValidationError("PIN must be 8 digits")
+        if len(set(value)) == 1:
             raise ValidationError("PIN cannot be all identical digits", field_name="pin")
     
+    @validates_schema('email')
+    def validate_email_format(self, value):
+        if not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", value):
+            raise ValidationError("Invalid email format")
+
+    @validates_schema('username')
+    def validate_username_format(self, value):
+        if len(value) < 4:
+            raise ValidationError("Username too short (min 4 chars)")
+        if not value.isalnum():
+            raise ValidationError("Username must be alphanumeric")
+
     
 class LoginSchema(Schema):
     username = fields.Str(required=True)

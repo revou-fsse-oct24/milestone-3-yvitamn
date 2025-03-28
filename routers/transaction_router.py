@@ -1,6 +1,7 @@
 
 from flask import Flask, Blueprint, request, jsonify
 from models.user_model import Transaction
+from schemas.transaction_schema import TransactionSchema
 from services.transaction_service import TransactionService
 from shared.auth_helpers import *
 from shared.exceptions import *
@@ -9,29 +10,32 @@ from datetime import datetime
 
 
 transaction_router = Blueprint('transaction', __name__)
+service = TransactionService()
+transaction_schema = TransactionSchema()
 
 #===========================Transaction Endpoints===================
 @transaction_router.route('/transactions', methods=["GET","POST"])
-@transaction_router.route('/transactions/<transaction_id>', methods=["GET","POST","PUT","DELETE"])
 @authenticate 
 # @pinprotected should be here
-def handle_transactions(user, transaction_id=None):
-    # data = request.get_json()
-    service = TransactionService()
-    match request.method.lower():
-        case "get":
-            if transaction_id:
-                transaction = service.get_transaction_by_id(user.id, transaction_id)
-                return jsonify({
-                    "success": True,
-                    "data": {
-                        "id": transaction.id,
-                        "amount": transaction.amount,
-                        "type": transaction.transaction_type,
-                        "status": transaction.status
-                    }
-                })
-            else:
+def get_user_transactions(user):
+    """Get all transactions for the authenticated user"""
+    transactions = service.get_user_transactions(user.id)
+    return jsonify({
+        "data": [{
+            "id": t.id,
+            "amount": float(t.amount),
+            "type": t.transaction_type,
+            "status": t.status,
+            "created_at": t.created_at.isoformat()
+        } for t in transactions]
+    })
+                
+                
+                
+   @transaction_router.route('/transactions/<transaction_id>', methods=["GET",             
+                
+                
+                
                 transactions = service.get_user_transaction(user.id)
                 return jsonify({
                     "success": True,
