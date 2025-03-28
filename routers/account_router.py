@@ -1,5 +1,5 @@
 from flask import Flask, Blueprint, request, jsonify
-from models.model import Account
+from models.user_model import Account
 from services.account_service import AccountService
 from repos.user_repo import UserRepository
 from shared.auth_helpers import *
@@ -8,7 +8,6 @@ from shared.error_handlers import *
 from datetime import datetime
 
 
-app = Flask(__name__)
 account_router = Blueprint('account', __name__)
 
 #===========================Account Endpoints===================

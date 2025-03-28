@@ -1,6 +1,6 @@
 
 from flask import Flask, Blueprint, request, jsonify
-from models.model import Transaction
+from models.user_model import Transaction
 from services.transaction_service import TransactionService
 from shared.auth_helpers import *
 from shared.exceptions import *
@@ -8,7 +8,6 @@ from shared.error_handlers import *
 from datetime import datetime
 
 
-app = Flask(__name__)
 transaction_router = Blueprint('transaction', __name__)
 
 #===========================Transaction Endpoints===================
@@ -87,19 +86,4 @@ def handle_transactions(user, transaction_id=None):
             
             
             
-                       
-if __name__ == "__main__":
-    # Run with watchdog and deep file monitoring
-    app.run(
-        host='0.0.0.0',
-        port=5000,
-        debug=True,
-        use_reloader=True,
-        reloader_type='watchdog',
-        extra_files=[
-            './services/**/*.py',
-            './models/**/*.py', 
-            './repos/**/*.py',
-            './shared/*.py'
-        ]
-    )
+  

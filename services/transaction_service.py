@@ -1,8 +1,8 @@
 from repos.transaction_repo import TransactionRepository   
 from repos.account_repo import AccountRepository    
 import uuid
-from models.model import Transaction
-from shared.schemas import *
+from models.user_model import Transaction
+from schemas.user_schema import *
 from shared.error_handlers import *
 
 

@@ -1,5 +1,5 @@
 
-from models.model import Transaction
+from models.user_model import Transaction
 from .base_repo import DummyBaseRepository
 from .account_repo import AccountRepository
 from shared.error_handlers import *

@@ -1,8 +1,8 @@
 import os
 from repos.user_repo import UserRepository
 import uuid
-from models.model import User
-from shared.schemas import *
+from models.user_model import User
+from schemas.user_schema import *
 from shared.error_handlers import *
 from datetime import datetime
 
@@ -53,7 +53,7 @@ class UserService:
             self.user_repo.create(admin)
             print("People's Admin created successfully!")
     
-    def authenticate_user(self, username, pin):
+    def authenticate_user(self, username: str, pin: str) -> bool:
         """
         Authenticate user with username and PIN
         Returns user if authentication succeeds
@@ -63,10 +63,10 @@ class UserService:
         if not user:
             raise AuthenticationError("Invalid credentials")
             
-        if not user.verify_pin(pin):
-            raise AuthenticationError("Invalid credentials")         
-        
+        if not user.verify_pin(pin):# Uses model's verification
+            raise AuthenticationError("Invalid credentials")        
         return user
+        
     
     
     def get_user_by_id(self, user_id):

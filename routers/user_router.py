@@ -1,34 +1,44 @@
 import os
 from flask import Flask, Blueprint, request, jsonify
-from models.model import User
+from models.user_model import User
 from repos.user_repo import UserRepository
 from services.user_service import UserService
 from shared.auth_helpers import *
 from shared.exceptions import *
 from shared.error_handlers import *
-from shared.schemas import *
+from schemas.user_schema import *
 from datetime import datetime
 
 
-
-app = Flask(__name__)
 user_router = Blueprint('user', __name__)
-
 service = UserService()
+user_schema = UserSchema()
  
 #==========================User Endpoints===================
-# Automatically enforce security
-# if os.getenv('FLASK_ENV') == 'production':
+
+@user_router.route('/users/me', methods=['GET'])
+@authenticate
+def get_current_user_profile():
+    current_user = get_current_user()
+    return jsonify({
+        "id": current_user.id,
+        "username": current_user.username,
+        "email": current_user.email,
+        "role": current_user.role,
+        "created_at": current_user.created_at.isoformat()
+    })
+
+
 @user_router.route('/users', methods=["GET"])
 @authenticate
-@admin_required
-def get_all_users_route(user: User): #admin_user
+def get_all_users_route(): 
      # Temporary development access
-    if os.getenv('FLASK_ENV') != 'development':
-        raise ForbiddenError("Access restricted in production")
+    # if os.getenv('FLASK_ENV') != 'development':
+        users = UserService().get_all_users()
+        return jsonify([u.to_dict() for u in users])       
+    # raise ForbiddenError("Access restricted in production")
 
-    users = UserService().get_all_users()
-    return jsonify([u.to_dict() for u in users])
+    
     # service = UserService()
        
     # users = service.get_all_users()
@@ -45,14 +55,13 @@ def register_user_route():
         data = request.get_json()
         
         #validate input 
-        schema = UserSchema()
-        errors = schema.validate(data)
+        errors = user_schema.validate(data)
         if errors:
             return jsonify({"success": False, "error": "Validation failed"}), 400
         
-        data.pop('role', None)  #prevent unauthorized role assignment
-        
+        data.pop('role', None)  #prevent unauthorized role assignment     
         user = UserService().register_user(data)   
+        
         return jsonify({
                     "success": True,
                     "data": {
@@ -72,7 +81,24 @@ def register_user_route():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
-
+def update_current_user():
+    current_user = get_current_user()
+    data = request.get_json()
+    
+    updated_user = service.update_user(
+        user_id=current_user.id,
+        email=data.get('email'),
+        pin=data.get('pin'),
+        first_name=data.get('first_name'),
+        last_name=data.get('last_name')
+    )
+    
+    return jsonify({
+        "id": updated_user.id,
+        "username": updated_user.username,
+        "email": updated_user.email
+    })
+    
 @user_router.route('/users/<user_id>', methods=["PUT","DELETE"])
 @authenticate
 def handle_users(user_id):
@@ -99,15 +125,15 @@ def handle_users(user_id):
             except BusinessRuleViolation as e:
                 return jsonify({"success": False, "error": str(e)}), 400
                 
-        case "delete":
-            try:
-                service.delete_user(user_id)
-                return jsonify({
-                    "success": True,
-                    "message": "User deleted successfully"
-                })
-            except BusinessRuleViolation as e:
-                return jsonify({"success": False, "error": str(e)}), 400
+        # case "delete":
+        #     try:
+        #         service.delete_user(user_id)
+        #         return jsonify({
+        #             "success": True,
+        #             "message": "User deleted successfully"
+        #         })
+        #     except BusinessRuleViolation as e:
+        #         return jsonify({"success": False, "error": str(e)}), 400
 
 
 # routes.py (TEMPORARY FOR TESTING ONLY)
@@ -119,20 +145,3 @@ def handle_users(user_id):
 #         for user in service.user_repo.find_all()
 #     ])
     
-           
-if __name__ == "__main__":
-    # Run with watchdog and deep file monitoring
-    
-    app.run(
-        host='0.0.0.0',
-        port=5000,
-        debug=True,
-        use_reloader=True,
-        reloader_type='watchdog',
-        extra_files=[
-            './services/**/*.py',
-            './models/**/*.py', 
-            './repos/**/*.py',
-            './shared/*.py'
-        ]
-    )

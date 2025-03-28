@@ -1,6 +1,6 @@
 from flask import Flask, Blueprint, request, jsonify
 from db.dummy_db import DummyDB
-from models.model import User, Account, Transaction
+from models.user_model import *
 from services.auth_service import AuthService
 from shared.exceptions import *
 from shared.error_handlers import *
@@ -35,42 +35,39 @@ def handle_login():
         print(f"DEBUG: Generated token {user.token} for user {user.id}")
         return jsonify({
             "success": True,
-            "token": user.token,
-            "user_id": user.id
+            "user_id": user.id,
+            "token": user.token #token generated during login
         }), 200
         
     except ValidationError as e:
         return jsonify({
             "success": False,
-            "error": e.message,
-            "details": e.errors
+            "error": str(e)
         }), 400
     
     except AuthenticationError as e:
         return jsonify({"success": False, "error": str(e)}), 401
     except Exception as e:
-        return jsonify({"success": False, "error": "Login failed"}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
     
 @auth_router.route('/users/me', methods=['GET'])
 @authenticate
-def handle_user_profile(user):
+def handle_user_profile():
     return jsonify({
         "success": True,
         "message": "User profile retrieved successfully",
         "data": {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "full_name": user.full_name
-            # "first_name": user.first_name,
-            # "last_name": user.last_name,
-            # "created_at": user.created_at.isoformat()
+            "id": g.user.id,
+            "username": g.user.username,
+            "email": g.user.email,
+            "full_name": g.user.full_name,
+            "created_at": g.user.created_at.isoformat()
         }
     })
 
 @auth_router.route('/admin', methods=['GET'])
-@authenticate  # Requires valid token
-@admin_required  # Requires admin role
+@authenticate  
+@admin_required  
 def admin_dashboard(admin_user):
     return jsonify({
         "message": "Admin dashboard",

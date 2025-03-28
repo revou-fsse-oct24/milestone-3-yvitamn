@@ -1,8 +1,8 @@
 from repos.user_repo import UserRepository 
- 
+import secrets
 import uuid
-from models.model import User
-from shared.schemas import *
+from models.user_model import User
+from schemas.user_schema import *
 from shared.error_handlers import *
 
 
@@ -30,7 +30,7 @@ class AuthService:
         print(f"Attempting login for: {username}")
         
         user = self.user_repo.find_by_username(username)
-        if not user:
+        if not user or not user.verify_pin(pin):
             print(f"User {username} not found")
             raise AuthenticationError("Invalid credentials")
         
@@ -42,12 +42,16 @@ class AuthService:
             raise AuthenticationError("Invalid credentials")
         
         # Generate and store new token 
-        user.token = str(uuid.uuid4()) #Generate UUID token
+        # user.token = str(uuid.uuid4()) #Generate UUID token
+        user.token = self._generate_token()
         self.user_repo.update(user)
         print(f"Generated new token: {user.token}")
         
         return user
-             
+    
+    def _generate_token(self) -> str:
+        """Generate secure random token"""
+        return secrets.token_urlsafe(32)         
         
     # def _validate_pin(self, user, pin_attempt):
     #     if user.pin_retries >= self.MAX_PIN_RETRIES:

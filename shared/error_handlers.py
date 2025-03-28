@@ -1,34 +1,43 @@
-from flask import jsonify
+from flask import app, jsonify
 from marshmallow import ValidationError
 from werkzeug.exceptions import HTTPException
 from .exceptions import *
 
 def register_error_handlers(app):    
     @app.errorhandler(ValidationError)
-    @app.errorhandler(UnauthorizedError)
-    @app.errorhandler(ForbiddenError)
-    @app.errorhandler(AuthenticationError)
-    @app.errorhandler(InvalidTokenError)
-    @app.errorhandler(InvalidPinError)
-    @app.errorhandler(BusinessRuleViolation)
-    @app.errorhandler(NotFoundError)
-    @app.errorhandler(InvalidAccountError)
+    def handle_validation_error(e):
+        return jsonify({
+            "error": e.description,
+            "details": getattr(e, 'details', None),
+            "code": 400
+        }), 400
+    
     @app.errorhandler(HTTPException)
-    def handle_auth_error(e):
-        if isinstance(e, HTTPException):
+    def handle_http_exception(e):
             return jsonify({
                 "error": e.description,
                 "code": e.code
-                }), e.code
-        # For custom exceptions
-        return jsonify({
-            "error": e.description,
-            "code": e.code
-        }), e.code
-        
+            }), e.code
+    
     @app.errorhandler(Exception)
-    def handle_unexpected_error(e):
-        return jsonify({"error": "Unexpected server error"}), 500
+    def handle_generic_error(e):
+            if isinstance(e, (BusinessRuleViolation, 
+                            InvalidCredentialsError,
+                            InvalidTokenError,
+                            ForbiddenError)):
+                return jsonify({
+                    "error": str(e),
+                    "code": e.code if hasattr(e, 'code') else 400
+                }), e.code if hasattr(e, 'code') else 400
+                
+            # Log unexpected errors here
+            app.logger.error(f"Unexpected error: {str(e)}")
+            return jsonify({
+                "error": "An unexpected error occurred",
+                "code": 500
+            }), 500
+        
+
     
    
     

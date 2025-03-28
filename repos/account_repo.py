@@ -1,5 +1,5 @@
 
-from models.model import Account
+from models.user_model import Account
 from .base_repo import DummyBaseRepository
 from shared.error_handlers import *
 from datetime import datetime

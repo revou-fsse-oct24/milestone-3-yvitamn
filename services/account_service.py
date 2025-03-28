@@ -1,8 +1,8 @@
 from repos.account_repo import AccountRepository
 from repos.user_repo import UserRepository       
 import uuid
-from models.model import Account
-from shared.schemas import *
+from models.user_model import Account
+from schemas.user_schema import *
 from shared.error_handlers import *
 
 

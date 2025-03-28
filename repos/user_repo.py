@@ -1,6 +1,7 @@
 
+from dataclasses import fields
 from typing import Optional
-from models.model import User
+from models.user_model import User
 from .base_repo import DummyBaseRepository
 from .account_repo import AccountRepository
 from shared.error_handlers import *
@@ -8,34 +9,92 @@ from datetime import datetime
 
 class UserRepository(DummyBaseRepository):
     def __init__(self):
-        super().__init__(model=User, collection_name='users')
-      
-    def find_by_token(self, token):
-        return next(
-            (u for u in self.collection.values() if u.token == token)
-            , None)
+        super().__init__(User, 'users')
+                      
+    def create(self, entity: User) -> User:
+        # Check for existing username/email before creation
+        if self.find_by_username(entity.username):
+            raise ValueError(f"Username {entity.username} already exists")
+        if self.find_by_email(entity.email):
+            raise ValueError(f"Email {entity.email} already registered")
 
-    def find_by_username(self, username: str) -> Optional[User]:
-        """Case-insensitive search with debug logging"""
-        search_username = username.strip().lower()
-        print(f"Searching for username: '{search_username}'")
-        print(f"Existing users: {[u.username for u in self.collection.values()]}")
-        
-        return next(
-            (u for u in self.collection.values()
-             if u.username == search_username),
-            None
-        )
+        # Call parent create (handles ID generation and storage)
+        created_user = super().create(entity)
 
-    def find_all(self):
-        return list(self.collection.values())
+        # Update indexes
+        self._add_to_index('email', entity.email, entity.id)
+        self._add_to_index('username', entity.username, entity.id)
+        return created_user           
     
-    def email_exists(self, email, exclude_user=None):
-        return any(
-            user.email == email 
+    def update(self, entity: User) -> User:
+        # Get existing user data before update
+        existing_user = self.find_by_id(entity.id)
+        if not existing_user:
+            raise NotFoundError("User not found")
+
+        # Check for email/username changes
+        if existing_user.email != entity.email:
+            if self.find_by_email(entity.email):
+                raise ValueError("New email already registered")
+            self._remove_from_index('email', existing_user.email, entity.id)
+            self._add_to_index('email', entity.email, entity.id)
+
+        if existing_user.username != entity.username:
+            if self.find_by_username(entity.username):
+                raise ValueError("New username already taken")
+            self._remove_from_index('username', existing_user.username, entity.id)
+            self._add_to_index('username', entity.username, entity.id)
+
+        return super().update(entity)
+
+    #search
+    #Function to get user IDs associated with a given email
+    def _get_user_ids_by_email(self, email: str) -> set[str]:
+        normalized_email = email.strip().lower()
+        return self.db._indexes['users']['email'].get(normalized_email, set())
+    
+    #find user by username
+    def find_by_username(self, username: str) -> Optional[User]:
+        search_username = username.strip().lower()
+        user_ids = self.db._indexes['users']['username'].get(search_username, set())
+        if user_ids:
+            return self.find_by_id(next(iter(user_ids)))
+        return None
+
+    #find user by email
+    def find_by_email(self, email: str) -> Optional[User]:
+        normalized_email = email.strip().lower()
+        user_ids = self.db._indexes['users']['email'].get(normalized_email, set())
+        if user_ids:
+            return self.find_by_id(next(iter(user_ids)))
+        return None
+
+    #find all registered users
+    def find_all(self, fields: list[str] = None) -> list[dict]:
+        """Get all users with specified fields"""  
+        default_fields = ["email", "username", "created_at"]
+        selected_fields = fields or default_fields  
+        return [
+            {
+                field: getattr(user, field, None)
+                for field in selected_fields
+                if hasattr(user, field)
+            }
             for user in self.collection.values()
-            if not exclude_user or user.id != exclude_user.id
-        )
+        ]
+    
+    def email_exists(self, email: str, exclude_user: User = None)-> bool:
+        normalized_email = email.strip().lower()
+        user_ids = self.db._indexes['users']['email'].get(normalized_email, set())
+        
+        if not user_ids:
+            return False  # Email doesn't exist
+        
+        if exclude_user:
+            # Check if any ID in the set is NOT the excluded user's ID
+            return any(uid != exclude_user.id for uid in user_ids)
+        
+        return True
     
     def get_users_with_balance(self, min_balance: float) -> list[User]:
         account_repoo = AccountRepository()
@@ -49,7 +108,13 @@ class UserRepository(DummyBaseRepository):
                 users.append(user)
         return users
 
-    def delete(self, user_id):
-        if user_id not in self.collection:
-            raise NotFoundError("User not found")
-        del self.collection[user_id]
+    # def delete(self, user_id: str) -> bool:
+    #     user = self.find_by_id(user_id)
+    #     if not user:
+    #         return False
+
+    #     # Clean up indexes
+    #     self._remove_from_index('email', user.email, user_id)
+    #     self._remove_from_index('username', user.username, user_id)
+        
+    #     return super().delete(user_id)
