@@ -55,7 +55,7 @@ def admin_required(func):
         
         # Defense against invalid user objects
         if not user or not isinstance(user, User):
-            raise AuthenticationError("Authentication required")
+            raise InvalidCredentialsError("Authentication required")
             
         if user.role != 'admin':
             raise ForbiddenError("Admin privileges required")  
@@ -67,7 +67,7 @@ def get_current_user() -> User:
     """Retrieve authenticated user from request context"""
     user = getattr(g, 'current_user', None)
     if not user or not isinstance(user, User):
-        raise AuthenticationError("Not authenticated")
+        raise InvalidCredentialsError("Not authenticated")
     return user
 
 

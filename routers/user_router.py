@@ -32,8 +32,7 @@ def get_current_user_profile():
 @user_router.route('/users', methods=["GET"])
 @authenticate
 def get_all_users_route(): 
-     # Temporary development access
-    # if os.getenv('FLASK_ENV') != 'development':
+
         users = UserService().get_all_users()
         return jsonify([u.to_dict() for u in users])       
     # raise ForbiddenError("Access restricted in production")
