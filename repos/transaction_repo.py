@@ -10,28 +10,22 @@ from datetime import datetime, timedelta
 class TransactionRepository(DummyBaseRepository):
     def __init__(self):
         super().__init__(Transaction, 'transactions')
-        self.account_repo = AccountRepository()
+        # self.account_repo = AccountRepository()
     
     def create(self, entity: Transaction) -> Transaction:
-        # Validate before creation
-        if entity.amount <= 0:
-            raise BusinessRuleViolation("Insufficient funds")
-       # Now handle stateful business rules
-        match entity.transaction_type:
-            case 'transfer' | 'withdrawal':
-                account = self.account_repo.find_by_id(entity.from_account_id)
-                if not account:
-                    raise BusinessRuleViolation("Source account not found")
-                if account.balance < entity.amount:
-                    raise BusinessRuleViolation("Insufficient funds")
-                    
-            case 'deposit':
-                if not self.account_repo.find_by_id(entity.to_account_id):
-                    raise BusinessRuleViolation("Destination account not found")
-       
-       #DummyDB handle indexing through base create
-        return super().create(entity)
-    
+        """Atomic transaction creation"""
+        try:
+            
+            # Final validation before persistence
+            if entity.amount <= 0:
+                raise BusinessRuleViolation("Invalid transaction amount")
+
+            return super().create(entity)
+        except Exception as e:
+                entity.status = 'failed'
+                super().create(entity)
+                raise
+            
 
     def find_by_transaction_id(self, tx_id: str) -> Optional[Transaction]:
         """Find by public transaction ID using index"""
@@ -39,14 +33,25 @@ class TransactionRepository(DummyBaseRepository):
         return self.find_by_id(next(iter(tx_ids))) if tx_ids else None
 
 
-    def update_status(self, tx_id: str, new_status: str) -> Transaction:
-        transaction = self.find_by_transaction_id(tx_id)
+    def update_status(self, transaction_id: str, new_status: str) -> Transaction:
+        transaction = self.find_by_transaction_id(transaction_id)
         if not transaction:
-            raise NotFoundError("Transaction not found")
-            
+            raise NotFoundError("Transaction not found")    
+             
+        # Validate status transition
+        valid_transitions = {
+            'pending': ['completed', 'failed'],
+            'failed': ['retrying'],
+            'completed': ['reverted']
+        }
+        
+        if new_status not in valid_transitions.get(transaction.status, []):
+            raise BusinessRuleViolation(f"Invalid status transition: {transaction.status} -> {new_status}")
+        
         # Update through base class to handle indexes
         transaction.status = new_status
         return self.update(transaction)
+
 
     def find_recent(self, days: int = 7) -> list[Transaction]:
         cutoff = datetime.now() - timedelta(days=days)

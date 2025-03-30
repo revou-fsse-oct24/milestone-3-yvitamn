@@ -1,5 +1,5 @@
 import os
-from flask import Flask, Blueprint, request, jsonify
+from flask import Flask, Blueprint, request
 from models.user_model import User
 from repos.user_repo import UserRepository
 from services.user_service import UserService
@@ -19,50 +19,44 @@ user_schema = UserSchema()
 @user_router.route('/users/me', methods=['GET'])
 @authenticate
 def get_current_user_profile():
-    current_user = get_current_user()
-    return jsonify({
-        "id": current_user.id,
-        "username": current_user.username,
-        "email": current_user.email,
-        "role": current_user.role,
-        "created_at": current_user.created_at.isoformat()
+    try:
+        current_user = get_current_user()
+        return format_response({
+            "id": current_user.id,
+            "username": current_user.username,
+            "email": current_user.email,
+            "role": current_user.role,
+            "created_at": current_user.created_at.isoformat()
     })
+    except Exception as e:
+        return handle_error("Failed to fetch user profile", 500)
 
 
 @user_router.route('/users', methods=["GET"])
 @authenticate
+@admin_required
 def get_all_users_route(): 
-
-        users = UserService().get_all_users()
-        return jsonify([u.to_dict() for u in users])       
-    # raise ForbiddenError("Access restricted in production")
-
-    
-    # service = UserService()
-       
-    # users = service.get_all_users()
-    # return jsonify([{
-    #             "id": u.id,
-    #             "username": u.username,
-    #             "email": u.email
-    #             "created_at": u.created_at.isoformat()
-    # } for u in users])
+    try:
+        users = service.get_all_users()
+        return format_response({
+            "users": [u.to_dict() for u in users],
+            "count": len(users)
+        })       
+    except ForbiddenError as e:
+        return handle_error(str(e), 403)
+    except Exception as e:
+        return handle_error("Failed to fetch users", 500)
+        
             
 @user_router.route('/register', methods=["POST"])
 def register_user_route():
     try:    
-        data = request.get_json()
+        data = user_schema.load(request.get_json())
+        data.pop('role', None)  #prevent unauthorized role assignment 
         
         #validate input 
-        errors = user_schema.validate(data)
-        if errors:
-            return jsonify({"success": False, "error": "Validation failed"}), 400
-        
-        data.pop('role', None)  #prevent unauthorized role assignment     
-        user = UserService().register_user(data)   
-        
-        return jsonify({
-                    "success": True,
+        user = service.register_user(data)
+        return format_response({
                     "data": {
                     "id": user.id,
                     "username": user.username,
@@ -80,67 +74,69 @@ def register_user_route():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
-def update_current_user():
-    current_user = get_current_user()
-    data = request.get_json()
-    
-    updated_user = service.update_user(
-        user_id=current_user.id,
-        email=data.get('email'),
-        pin=data.get('pin'),
-        first_name=data.get('first_name'),
-        last_name=data.get('last_name')
-    )
-    
-    return jsonify({
-        "id": updated_user.id,
-        "username": updated_user.username,
-        "email": updated_user.email
-    })
-    
-@user_router.route('/users/<user_id>', methods=["PUT","DELETE"])
+
+@user_router.route('/users/me', methods=['PUT'])
 @authenticate
-def handle_users(user_id):
+def update_current_user():
+    try:
+        current_user = get_current_user()
+        data = request.get_json()
+        
+        updated_user = service.update_user(
+            user_id=current_user.id,
+            email=data.get('email'),
+            # pin=data.get('pin'),
+            first_name=data.get('first_name'),
+            last_name=data.get('last_name')
+        )
+        
+        return format_response({
+            "id": updated_user.id,
+            "username": updated_user.username,
+            "email": updated_user.email,
+            "message": "User successfully updated"
+        })
+    except ValidationError as e:
+        return handle_error({
+            "message": "Validation failed", 
+            "errors": e.messages
+        }, 400)
+    except BusinessRuleViolation as e:
+        return handle_error(str(e), 400)
+    except Exception as e:
+        return handle_error("Update failed", 500)
+
     
-    match request.method.lower():           
-        case "put":
-            data = request.get_json()
-           
-            try:
-                updated_user = service.update_user(
-                    user_id,
-                    data.get('username'),
-                    data.get('email'),
-                    data.get('pin')
-                )
-                return jsonify({
-                    "success": True,
-                    "data": {
-                        "id": updated_user.id,
-                        "username": updated_user.username,
-                        "email": updated_user.email
-                    }
-                })
-            except BusinessRuleViolation as e:
-                return jsonify({"success": False, "error": str(e)}), 400
+@user_router.route('/users/<string:user_id>', methods=["PUT","DELETE"])
+@authenticate
+@admin_required
+def delete_user(user_id):
+    try:
+        service.delete_user(user_id)
+        return format_response({"message": "User deleted successfully"}, status_code=204)
+    except NotFoundError as e:
+        return handle_error(str(e), 404)
+    except ForbiddenError as e:
+        return handle_error(str(e), 403)
+    except Exception as e:
+        return handle_error("Deletion failed", 500)
                 
-        # case "delete":
-        #     try:
-        #         service.delete_user(user_id)
-        #         return jsonify({
-        #             "success": True,
-        #             "message": "User deleted successfully"
-        #         })
-        #     except BusinessRuleViolation as e:
-        #         return jsonify({"success": False, "error": str(e)}), 400
-
-
-# routes.py (TEMPORARY FOR TESTING ONLY)
-# @router.route('/users', methods=['GET'])
-# @authenticate
-# def get_all_users():
-#     service = UserService()
-#     return jsonify([user.to_dict()
-#         for user in service.user_repo.find_all()
-#     ])
-    
+      
+@user_router.route('/users/me/pin', methods=['PUT'])
+@authenticate
+def update_pin():
+    try:
+        current_user = get_current_user()
+        data = request.get_json()
+        service.update_pin(
+            user_id=current_user.id,
+            old_pin=data['old_pin'],
+            new_pin=data['new_pin']
+        )
+        return format_response({"message": "PIN updated successfully"})
+    except ValidationError as e:
+        return handle_error({"message": "Validation failed", "errors": e.messages}, 400)
+    except InvalidCredentialsError as e:
+        return handle_error(str(e), 401)
+    except Exception as e:
+        return handle_error("PIN update failed", 500)

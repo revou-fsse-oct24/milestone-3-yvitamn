@@ -79,15 +79,18 @@ class UserRepository(DummyBaseRepository):
 
 
     #find all registered users
-    def find_all(self, fields: list[str] = None) -> list[dict]:
+    def find_all(self) -> list[dict]:
+        # , fields: list[str] = None)
         """Get all users with specified fields"""  
-        default_fields = ["email", "username", "created_at"]
-        selected_fields = fields or default_fields  
+        # default_fields = ["email", "username", "created_at"]
+        # selected_fields = fields or default_fields  
         return [
             {
-                field: getattr(user, field, None)
-                for field in selected_fields
-                if hasattr(user, field)
+                "email": user.email,
+                "username": user.username
+                # field: getattr(user, field, None)
+                # for field in selected_fields
+                # if hasattr(user, field)
             }
             for user in self.collection.values()
         ]

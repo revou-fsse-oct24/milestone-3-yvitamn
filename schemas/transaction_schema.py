@@ -88,9 +88,11 @@ class TransactionSchema(Schema):
                     raise ValidationError("Deposits cannot have from_account")
             
             
-    # @validates_schema
-    # def validate_amount_precision(self, data, **kwargs):
-    #     amount = data.get('amount')
-    #     if amount is not None:
-    #         if abs(amount.as_tuple().exponent) > 2:
-    #             raise ValidationError("Amount cannot have more than 2 decimal places")
+    @validates_schema
+    def validate_amount_precision(self, data, **kwargs):
+        """Ensure exactly 2 decimal places"""
+        amount = data.get('amount')
+        if amount is not None:
+            if abs(amount.as_tuple().exponent) != 2:
+                raise ValidationError(
+                    "Must have exactly 2 decimal places")

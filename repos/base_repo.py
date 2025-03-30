@@ -9,7 +9,7 @@ from models.user_model import User
 
 T = TypeVar('T')
 
-class BaseRepository(Generic[T]):
+class BaseRepository(Generic[T], ABC):
     def __init__(self, model: Type[T], collection_name: str):
         self.model = model
         self.collection_name = collection_name
@@ -31,12 +31,10 @@ class BaseRepository(Generic[T]):
         pass
     
     
-
-
 # print(type(dummy_db_instance))
 # print(dummy_db_instance.users)
 
-class DummyBaseRepository(BaseRepository):
+class DummyBaseRepository(BaseRepository(T)):
     def __init__(self, model: Type[T], collection_name: str):
         super().__init__(model, collection_name)
         self.db = dummy_db_instance  
@@ -52,7 +50,7 @@ class DummyBaseRepository(BaseRepository):
         if not hasattr(entity, 'id'):
             raise ValueError("Entity missing ID")
             
-        if not entity.id:  
+        if not entity.id: 
             entity.id = str(uuid.uuid4())
             
         if entity.id in self.collection:
@@ -60,6 +58,7 @@ class DummyBaseRepository(BaseRepository):
         
         # Store in collection 
         self.collection[entity.id] = entity
+        
         
         # Auto-index all predefined fields
         if self.collection_name in self.db._indexes:

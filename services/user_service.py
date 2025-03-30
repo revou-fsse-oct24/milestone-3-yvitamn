@@ -27,7 +27,7 @@ class UserService:
         
         #Business logic validation (require database access)
 
-        
+      
         #check existence
         if self.user_repo.email_exists(email):
             raise BusinessRuleViolation("Email already registered")

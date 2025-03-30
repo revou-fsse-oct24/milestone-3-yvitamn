@@ -87,20 +87,3 @@ def handle_accounts(user, account_id=None):
 
 
 
-
-           
-if __name__ == "__main__":
-    # Run with watchdog and deep file monitoring
-    app.run(
-        host='0.0.0.0',
-        port=5000,
-        debug=True,
-        use_reloader=True,
-        reloader_type='watchdog',
-        extra_files=[
-            './services/**/*.py',
-            './models/**/*.py', 
-            './repos/**/*.py',
-            './shared/*.py'
-        ]
-    )

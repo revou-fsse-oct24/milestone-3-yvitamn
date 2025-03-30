@@ -70,19 +70,20 @@ def create_transaction(user):
     try:           
         data = transaction_schema.load(request.get_json())
                 
-        transaction = service.create_transaction(
-            user_id=user.id,
-            transaction_type=data['type'],
-            amount=data['amount'],
-            from_account=data.get('from_account'),
-            to_account=data.get('to_account'),
-            description=data.get('description', '')
-        )
+        transaction = service.create_transaction(user.id, data)
+        #     user_id=user.id,
+        #     transaction_type=data['type'],
+        #     amount=data['amount'],
+        #     from_account=data.get('from_account'),
+        #     to_account=data.get('to_account'),
+        #     description=data.get('description', '')
+        # )
       
         return format_response({ 
             "data": {
                 "transaction_id": transaction.id,
-                "status": transaction.status
+                "status": transaction.status,
+                "message": "Transaction created successfully"
             }
         }), 201
             
@@ -105,17 +106,17 @@ def update_transaction_status(user, transaction_id):
         data = request.get_json()
         new_status = data.get('status')
         
-        transaction = service.update_transaction_status(
-            user_id=user.id,
-            transaction_id=transaction_id,
-            new_status=new_status
-        )
+        transaction = service.update_transaction_status(user.id, transaction_id, data)
+        #     user_id=user.id,
+        #     transaction_id=transaction_id,
+        #     new_status=new_status
+        # )
         return format_response({
             "data": {
                 "id": transaction.id,
                 "status": transaction.status
-                }
-            })
+            }
+        })
     
     except NotFoundError as e:
         return handle_error(f"Transaction {transaction_id} not found", 404)
@@ -133,8 +134,8 @@ def delete_transaction(user, transaction_id):
     try:        
         service.delete_user_transaction(user.id, transaction_id)        
         return format_response({
-                        "message": f"Transaction {transaction_id} deleted successfully"
-                    }), 204
+            "message": f"Transaction {transaction_id} deleted successfully"
+        }), 204
     
     except NotFoundError as e:
         return handle_error(f"Transaction {transaction_id} not found", 404)
