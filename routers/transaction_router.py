@@ -1,6 +1,7 @@
 
 from flask import Flask, Blueprint, request, jsonify
 from models.user_model import Transaction
+from schemas import transaction_schema
 from schemas.transaction_schema import TransactionSchema
 from services.transaction_service import TransactionService
 from shared.auth_helpers import *
@@ -17,73 +18,82 @@ transaction_schema = TransactionSchema()
 @transaction_router.route('/transactions', methods=["GET"])
 @authenticate 
 # @pinprotected should be here
-def get_user_transactions(user):
-    """Get all transactions for the authenticated user"""
+def get_transactions(user):
+    """Get all transactions with optional filters"""
     try:
-        transactions = service.get_user_transactions(user.id)
+        # Parse query parameters
+        account_id = request.args.get('account_id')
+        start_date = request.args.get('start')
+        end_date = request.args.get('end')
+        # data = transaction_schema.load(request.get_json())
+        
+        # Validate date format
+        filters = {}
+        if start_date:
+            try:
+                filters['start_date'] = datetime.fromisoformat(start_date)
+            except ValueError:
+                return handle_error("Invalid start_date format. Use ISO 8601", 400)
+        
+        if end_date:
+            try:
+                filters['end_date'] = datetime.fromisoformat(end_date)
+            except ValueError:
+                return handle_error("Invalid end_date format. Use ISO 8601", 400)
+        
+        transactions = service.get_user_transactions(
+            user.id, 
+            account_id=account_id,
+            filters=filters
+        )
         return format_response({
-            "data": [{
-                "id": t.id,
-                "amount": float(t.amount),
-                "type": t.transaction_type,
-                "status": t.status,
-                "created_at": t.created_at.isoformat()
-            } for t in transactions]
-        })
+            "data": [
+                transaction_schema.dump(t) for t in transactions]     
+        }), 200
     
+    except ValidationError as e:
+        return handle_error({
+            "message": "Validation failed",
+            "errors": e.normalized_messages()
+        }, 400)
+    except BusinessRuleViolation as e:
+        return handle_error(str(e), 403)
+    except Exception as e:
+        return handle_error("Failed to retrieve transactions", 500)            
+                
+
+@transaction_router.route('/transactions/<string:transaction_id>', methods=["GET"])
+@authenticate
+@account_owner_required
+def get_transactions_details(user, transaction_id):
+    """Get detailed transaction"""
+    try:
+        transaction = service.get_transaction_details(user.id, transaction_id)
+        return format_response({
+            "data": transaction_schema.dump(transaction) 
+        })
     except NotFoundError as e:
         return handle_error(str(e), 404)
-    except Exception as e:
-        return handle_error("Internal server error", 500)            
-                
-                
-@transaction_router.route('/transactions/<string:transaction_id>', methods=["GET"])            
-@authenticate
-def get_transaction(user, transaction_id):            
-    """Get specific transaction details"""  
-    try:
-        transaction = service.get_user_transaction(user.id, transaction_id)
-        return format_response({
-            "data": {
-                "id": transaction.id,
-                "amount": float(transaction.amount),
-                "type": transaction.transaction_type,
-                "status": transaction.status,
-                "from_account": transaction.from_account_id,
-                "to_account": transaction.to_account_id,
-                "created_at": transaction.created_at.isoformat()     
-            } 
-        })
-    
-    except NotFoundError as e:
-        return handle_error(f"Transaction {transaction_id} not found", 404)
     except ForbiddenError as e:
-        return handle_error("Access to transaction denied", 403)
+        return handle_error(str(e), 403)
     except Exception as e:
-        return handle_error("Internal server error", 500)       
+        return handle_error("Failed to retrieve transaction", 500)    
   
            
 @transaction_router.route('/transactions', methods=['POST'])
 @authenticate           
 def create_transaction(user):
     """Create a new transaction"""  
-    try:           
-        data = transaction_schema.load(request.get_json())
-                
+    try:   
+        data = transaction_schema.load(request.get_json())        
         transaction = service.create_transaction(user.id, data)
-        #     user_id=user.id,
-        #     transaction_type=data['type'],
-        #     amount=data['amount'],
-        #     from_account=data.get('from_account'),
-        #     to_account=data.get('to_account'),
-        #     description=data.get('description', '')
-        # )
-      
+        
         return format_response({ 
             "data": {
-                "transaction_id": transaction.id,
+                "transaction_id": transaction.public_id,
                 "status": transaction.status,
                 "message": "Transaction created successfully"
+                "verification_required": transaction.status == 'pending'
             }
         }), 201
             
@@ -97,51 +107,34 @@ def create_transaction(user):
     except Exception as e:
         return handle_error("Transaction creation failed", 500)            
         
-                
-@transaction_router.route('/transactions/<string:transaction_id>', methods=["PUT"])            
+ 
+ 
+# ====================== Security Endpoints ======================
+@transaction_router.route('/transactions/<string:txn_id>/verify', methods=['POST'])
 @authenticate
-def update_transaction_status(user, transaction_id):
-    """Update transaction status"""  
+def verify_transaction(user, txn_id):
+    """Verify pending transaction"""
     try:
-        data = request.get_json()
-        new_status = data.get('status')
+        token = request.json.get('verification_token')
+        transaction = service.verify_transaction(
+            user.id,
+            txn_id,
+            token
+        )
         
-        transaction = service.update_transaction_status(user.id, transaction_id, data)
-        #     user_id=user.id,
-        #     transaction_id=transaction_id,
-        #     new_status=new_status
-        # )
         return format_response({
-            "data": {
-                "id": transaction.id,
-                "status": transaction.status
-            }
+            "status": transaction.status,
+            "message": "Transaction verified successfully"
         })
-    
+        
+    except InvalidTokenError as e:
+        return handle_error(str(e), 401)
     except NotFoundError as e:
-        return handle_error(f"Transaction {transaction_id} not found", 404)
+        return handle_error(str(e), 404)
     except ForbiddenError as e:
-        return handle_error("Update not allowed", 403)
+        return handle_error(str(e), 403)
     except Exception as e:
-        return handle_error("Update failed", 500)    
-    
-
-
-@transaction_router.route('/transactions/<string:transaction_id>', methods=["DELETE"])            
-@authenticate
-def delete_transaction(user, transaction_id):
-    """Delete a transaction"""
-    try:        
-        service.delete_user_transaction(user.id, transaction_id)        
-        return format_response({
-            "message": f"Transaction {transaction_id} deleted successfully"
-        }), 204
-    
-    except NotFoundError as e:
-        return handle_error(f"Transaction {transaction_id} not found", 404)
-    except ForbiddenError as e:
-        return handle_error("Deletion not allowed", 403)
-    except Exception as e:
-        return handle_error("Deletion failed", 500)
-            
+        return handle_error("Verification failed", 500)
   
+#   GET /transactions?account_id=acc_123:
+#   self.find_by_field('from_account', 'acc_123') 

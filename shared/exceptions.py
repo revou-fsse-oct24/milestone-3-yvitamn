@@ -14,11 +14,7 @@ class UnauthorizedError(APIException):
     
 class InvalidCredentialsError(APIException):
     code = 401
-    description = "Invalid credentials"
-    
-class NotFoundError(APIException):
-    code = 404
-    description = "Resource not found"    
+    description = "Invalid credentials"  
 
 class InvalidTokenError(APIException):
     code = 401
@@ -30,7 +26,8 @@ class InvalidPinError(APIException):
 
 class ForbiddenError(APIException):
     code = 403
-    description = "Access forbidden"
+    def __init__(self, action="perform this action"):
+        self.description = f"You don't have permission to {action}"
 
 #business logic errors
 
@@ -38,6 +35,7 @@ class NotFoundError(APIException):
     code = 404
     def __init__(self, resource_name="Resource"):
         self.description = f"{resource_name} not found"
+        super().__init__(description=self.description)
 
 class RetryExceededError(APIException):
     code = 429  # Too Many Requests
@@ -50,11 +48,16 @@ class BusinessRuleViolation(APIException):
 class InvalidAccountError(APIException):
     code = 400
     description = "Invalid account"
-
-# System errors
-class TransactionFailedError(APIException):
-    code = 500
-    description = "Transaction processing failed"
+    
+class SecurityValidationError(APIException):
+    code = 400
+    description = "Security validation failed"
+    
+# class AccountLockedError(APIException):
+#     code = 423
+    # def __init__(self, lock_duration=15):
+#         self.description = f"Account temporarily locked. Try again in {lock_duration} minutes"
+#         self.lock_duration = lock_duration
 
 #custom exceptions
 class InsufficientBalanceException(APIException):
@@ -64,13 +67,12 @@ class InsufficientBalanceException(APIException):
         self.account_id = account_id
         self.balance = balance
 
+class ConcurrentUpdateError(APIException):
+    code = 409
+    description = "Resource modified by another request"
+
 #system error
 class TransactionFailedError(APIException):
     code = 500
     description = "Transaction processing failed"
 
-# class AccountLockedError(APIException):
-#     code = 403
-#     def __init__(self, lock_duration=15):
-#         self.description = f"Account locked. Try again in {lock_duration} minutes"
-#         self.lock_duration = lock_duration

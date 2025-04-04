@@ -1,7 +1,10 @@
+from decimal import Decimal
 from repos.account_repo import AccountRepository
+from repos.transaction_repo import TransactionRepository
 from repos.user_repo import UserRepository       
 import uuid
 from models.user_model import Account
+from schemas.account_schema import AccountSchema
 from schemas.user_schema import *
 from shared.error_handlers import *
 
@@ -10,30 +13,37 @@ from shared.error_handlers import *
 class AccountService:
     def __init__(self):
         self.account_repo = AccountRepository()
-        self.user_repo = UserRepository()
+        # self.user_repo = UserRepository()
+        # self.transaction_repo = TransactionRepository()
+        self.schema = AccountSchema()
         
-    def create_account(self, user_id, account_type):
-        # Validate user exists
-        if not self.account_repo.find_by_id(user_id):
-            raise NotFoundError("User not found")
-    
-        # Validate account type
-        valid_account_types = ['checking', 'savings', 'credit']  # Example types
-        if account_type not in valid_account_types:
-            raise BusinessRuleViolation(
-                description=f"Invalid account type: {account_type}. Valid types are: {', '.join(valid_account_types)}",
-                code=400
-            )
+    def create_account(self, user_id: str, data: dict) -> Account:
+        # Validate input
+        validated = self.schema.load(data) 
+        # Generate account
+        return self.repo.create(Account(
+            user_id=user_id,
+            balance=Decimal(validated['initial_balance']),
+            account_type=validated['account_type']
+        ))
         
-    # Create account with consecutive account_number
-        account = Account(
-            user_id=user_id, # UUID from authenticated user
-            account_type=account_type,
-        )
-        return self.account_repo.create(account)
     
-    def get_user_accounts(self, user_id):
+    def validate_account_ownership(self, account_id: str, user_id: str):
+        account = self.account_repo.find_by_id(account_id)
+        if not account or account.user_id != user_id:
+            raise ForbiddenError("Account access denied")
+    
+    
+    def get_user_accounts(self, user_id: str) -> list[Account]:
         return self.account_repo.find_by_user(user_id)
+    
+    
+    def get_account(self, account_id: str, user_id: str) -> Account:
+        account = self.account_repo.find_by_id(account_id)
+        if not account or account.user_id != user_id:
+            raise ForbiddenError("Account access denied")
+        return account
+    
     
     def get_account_by_id(self, user_id, account_id):
         # Verify account exists and belongs to user
@@ -42,3 +52,28 @@ class AccountService:
             raise NotFoundError("Account not found")
         if account.user_id != user_id:
             raise InvalidAccountError("Account doesn't belong to user")
+        
+        
+    def get_account_summary(self, account_id: str) -> dict:
+        """Get financial summary with transaction data"""
+        account = self.account_repo.find_by_id(account_id)
+        transactions = self.transaction_repo.find_by_account(account_id)
+        return {
+            "account_number": account.account_number,
+            "current_balance": str(account.balance),
+            "transaction_count": len(transactions),
+            "last_transaction": max(t.created_at for t in transactions).isoformat() if transactions else None
+        }
+        
+    def deactivate_account(self, account_id: str, user_id: str) -> Account:
+        account = self.get_account(account_id, user_id)
+        if account.balance != Decimal('0'):
+            raise BusinessRuleViolation("Cannot deactivate account with balance")
+        account.is_active = False
+        return self.account_repo.update(account)
+    
+    # def delete_account(self, account_id: str, user_id: str) -> bool:
+    #     account = self.get_account(account_id, user_id)
+    #     if account.balance > 0:
+    #         raise BusinessRuleViolation("Cannot delete account with balance")
+    #     return self.repo.delete(account_id)

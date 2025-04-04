@@ -52,8 +52,8 @@ def register_error_handlers(app):
     def handle_api_exception(e):
         return jsonify({
             "error": e.description,
-            "details": getattr(e, 'details', None),
             "code": e.code
+            "details": getattr(e, 'details', None)
         }), e.code
         
     @app.errorhandler(ValidationError)
@@ -89,7 +89,14 @@ def register_error_handlers(app):
                 "error": "An unexpected error occurred",
                 "code": 500
             }), 500
-        
+            
+    @app.errorhandler(404)
+    def handle_not_found(e):
+        return jsonify({
+            "error": "Resource not found",
+            "code": 404
+        }), 404
+            
 
     
    

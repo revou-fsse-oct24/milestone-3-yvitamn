@@ -9,6 +9,8 @@ from shared.error_handlers import *
 from schemas.user_schema import *
 from datetime import datetime
 
+from shared.security import SecurityUtils
+
 
 user_router = Blueprint('user', __name__)
 service = UserService()
@@ -19,14 +21,15 @@ user_schema = UserSchema()
 @user_router.route('/users/me', methods=['GET'])
 @authenticate
 def get_current_user_profile():
+    """Get authenticated user's profile"""
     try:
-        current_user = get_current_user()
+        user = get_current_user()
         return format_response({
-            "id": current_user.id,
-            "username": current_user.username,
-            "email": current_user.email,
-            "role": current_user.role,
-            "created_at": current_user.created_at.isoformat()
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role,
+            "created_at": user.created_at.isoformat()
     })
     except Exception as e:
         return handle_error("Failed to fetch user profile", 500)
@@ -34,7 +37,7 @@ def get_current_user_profile():
 
 @user_router.route('/users', methods=["GET"])
 @authenticate
-@admin_required
+@require_role('admin')
 def get_all_users_route(): 
     try:
         users = service.get_all_users()
@@ -66,13 +69,16 @@ def register_user_route():
                     }
             }), 201     
     except ValidationError as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        return handle_error({
+            "message": "Validation failed", 
+            "errors": e.messages
+        }, 400)
 
     except BusinessRuleViolation as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        return handle_error(str(e), 400)
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @user_router.route('/users/me', methods=['PUT'])
@@ -82,7 +88,7 @@ def update_current_user():
         current_user = get_current_user()
         data = request.get_json()
         
-        updated_user = service.update_user(
+        updated_user = service.update_self(
             user_id=current_user.id,
             email=data.get('email'),
             # pin=data.get('pin'),
@@ -107,9 +113,9 @@ def update_current_user():
         return handle_error("Update failed", 500)
 
     
-@user_router.route('/users/<string:user_id>', methods=["PUT","DELETE"])
+@user_router.route('/users/<string:user_id>', methods=["DELETE"])
 @authenticate
-@admin_required
+@require_role('admin')
 def delete_user(user_id):
     try:
         service.delete_user(user_id)
@@ -128,10 +134,10 @@ def update_pin():
     try:
         current_user = get_current_user()
         data = request.get_json()
-        service.update_pin(
+        service.change_pin(
             user_id=current_user.id,
             old_pin=data['old_pin'],
-            new_pin=data['new_pin']
+            new_pin = SecurityUtils.hash_pin(request.json['new_pin'])
         )
         return format_response({"message": "PIN updated successfully"})
     except ValidationError as e:

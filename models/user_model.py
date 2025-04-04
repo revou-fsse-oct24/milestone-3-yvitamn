@@ -3,8 +3,7 @@ import secrets
 from uuid import uuid4
 import uuid
 import bcrypt
-
-
+from shared.security import SecurityUtils
 
 
 #=============Models=========================    
@@ -17,46 +16,54 @@ class User:
         first_name: str, 
         last_name: str, 
         role: str = 'user'
-    ) -> None:
+    ):
         
-        self.id = str(uuid.uuid4()) #PK
-        self.username = username.strip().lower()
-        self.email = email
-        self.pin_hash = self._hash_pin(pin) #hash in real implementation
+        # self.failed_login_attempts = 0
+        # self.account_locked_until = None
+        
+        self.id = str(uuid.uuid4()) #Primary Key
+        self.username = username.lower().strip()
+        self.email = email.lower().strip()
+        # self.pin = pin #hash & uses property setter
         self.first_name = first_name
         self.last_name = last_name
         self.role = role
-        self.created_at = datetime.now()
+        self.created_at = datetime.now().isoformat() + 'Z'
         self.updated_at = datetime.now()
         self.token = None 
         self.token_expiry = None
  
+        # PIN handling through property setter
+        self.pin_hash = SecurityUtils.hash_pin(pin)
+        
     @property
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}".strip()   
     
+    #pin related====================
+    @property
+    def pin(self):
+        raise AttributeError("PIN access denied - use verify_pin() instead")
+    
+    @pin.setter
+    def pin(self, value: str):
+        """Automatically hash PIN when set"""
+        self.pin_hash = SecurityUtils.hash_pin(value)  # Requires hash_pin()
+       
+    def verify_pin(self, pin: str) -> bool:
+        return SecurityUtils.verify_pin(pin, self.pin_hash)
+    
+    # token related==========================
     def refresh_token(self):
         """Generates new auth token"""
-        self.token = secrets.token_urlsafe(64)
-        self.token_expiry = datetime.now() + timedelta(hours=1)
+        old_token = self.token
+        self.token, self.token_expiry = SecurityUtils.generate_auth_token()
         
-    def _hash_pin(self, pin: str) -> str:
-        """Hash the PIN using bcrypt with salt."""
-        # print(f"Hashing PIN: {pin} (Type: {type(pin)})")
-        hashed = bcrypt.hashpw(pin.encode('utf-8'), bcrypt.gensalt())
-        # print(f"Generated hash: {hashed.decode()}")
-        return hashed.decode('utf-8')
-
-    def verify_pin(self, pin: str) -> bool:
-        """Verify if the provided PIN matches the hash."""
-        # print(f"Verifying PIN: {pin} against {self.pin_hash}")
-        return bcrypt.checkpw(
-            pin.encode('utf-8'), 
-            self.pin_hash.encode('utf-8')
-        )
-    
-    
-    def to_dict(self) -> dict:
+        # Cryptographic token invalidation
+        SecurityUtils.invalidate_token(old_token) # If tracking previous tokens
+        # Old token should be invalidated immediately
+        
+    def to_api_response(self) -> dict:
         """Safe serialization (excludes sensitive fields)"""
         return {
             "id": self.id,
@@ -64,8 +71,7 @@ class User:
             "email": self.email,
             "role": self.role,
             "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat()
-            
+            "updated_at": self.updated_at.isoformat() 
         }    
     
 

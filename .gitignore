@@ -1,11 +1,29 @@
+# Ignore Python bytecode files
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Virtual environments
 env/
 venv/
+
+# Packaging directories
 *.egg-info/
+
+# Ignore IDE config files
 *.idea/
 .vscode/
-*.log
+
+# Ignore log files
+*.log 
+
+
+# Environment files
+.env
+*.env
 .flaskenv
+!.env.test
+
+# Ignore any local database files
+db/

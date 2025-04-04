@@ -1,5 +1,6 @@
+from datetime import datetime
 import re
-from marshmallow import Schema, fields, validate, validates_schema
+from marshmallow import Schema, fields, validate, validates
 from uuid import UUID
 from shared.error_handlers import *
 
@@ -60,26 +61,34 @@ class UserSchema(Schema):
         dump_only=True,  # Prevent role from being set via input
         validate=validate.OneOf(['user', 'admin']),
         error_messages={
-            "validator_failed": "Invalid role specified"
+            "validator_failed": "Invalid role"
         }
     )
     
    
 
-    @validates_schema('pin')
+    @validates('pin')
     def validate_pin_format(self, value):
         """Additional PIN validation"""
         if len(value) != 8 or not value.isdigit():
             raise ValidationError("PIN must be 8 digits")
         if len(set(value)) == 1:
             raise ValidationError("PIN cannot be all identical digits", field_name="pin")
+        # Check for sequential numbers (e.g., 12345678)
+        if value in ['01234567', '12345678', '23456789']:
+            raise ValidationError("PIN cannot be simple sequences")
+        # Check for common patterns (e.g., birth years)
+        current_year = datetime.now().year
+        if value.isdigit() and 1900 <= int(value) <= current_year:
+            raise ValidationError("PIN cannot be a birth year")
     
-    @validates_schema('email')
+    
+    @validates('email')
     def validate_email_format(self, value):
         if not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", value):
             raise ValidationError("Invalid email format")
 
-    @validates_schema('username')
+    @validates('username')
     def validate_username_format(self, value):
         if len(value) < 4:
             raise ValidationError("Username too short (min 4 chars)")
@@ -87,25 +96,7 @@ class UserSchema(Schema):
             raise ValidationError("Username must be alphanumeric")
 
     
-class LoginSchema(Schema):
-    username = fields.Str(required=True)
-    pin = fields.Str(
-        required=True, 
-        error_messages={"required": "Username is required"}
-    )
-    pin = fields.Str(
-        required=True,
-        validate=validate.Length(
-            min=8, 
-            max=8,
-            error="PIN must be 8 digits"
-        ),
-        error_messages={"required": "PIN is required"}
-    )
-    @validates_schema
-    def validate_pin_format(self, data, **kwargs):
-        if not data['pin'].isdigit():
-            raise ValidationError("PIN must contain only numbers", field_name="pin")
+
 
 user_schema = UserSchema()
  

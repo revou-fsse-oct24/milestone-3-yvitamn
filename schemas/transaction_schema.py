@@ -1,26 +1,27 @@
 
+from decimal import Decimal, InvalidOperation
 import uuid
 from marshmallow.validate import Range, Length, OneOf
-from marshmallow import Schema, fields, ValidationError, validates_schema, validate
+from marshmallow import Schema, fields, ValidationError, validates, validate
 
-def validate_uuid(value):
-    try:
-        uuid.UUID(value)
-    except ValueError:
-        raise ValidationError("Invalid UUID format")
+# def validate_uuid(value):
+#     try:
+#         uuid.UUID(value)
+#     except ValueError:
+#         raise ValidationError("Invalid UUID format")
     
 class TransactionSchema(Schema):
     amount = fields.Decimal(
         required=True,
-        gt=0,
         places=2,
         validate=[
-            validate.Range(min=0.01, max=1000000, 
-                         error="Amount must be between $0.01 and $1,000,000")
+            validate.Range(min=Decimal('0.01'), max=Decimal('1000000.00'))
         ],
         error_messages={
-            "invalid": "Invalid amount format. Must be a number with up to 2 decimal places",
-            "required": "Amount is required"
+            "invalid": "Invalid amount format. Use up to 2 decimal places",
+            "required": "Amount is required",
+            "min": "Minimum transaction amount is 0.01",
+            "max": "Maximum transaction amount is 1,000,000.00"
         }
     )
     transaction_type = fields.Str(
@@ -28,46 +29,57 @@ class TransactionSchema(Schema):
         data_key="type",
         validate=validate.OneOf(
             ['deposit', 'withdrawal', 'transfer'],
-            error="Invalid transaction type. Allowed values: deposit, withdrawal, transfer"
-        ),
-        error_messages={
-            "required": "Transaction type is required",
-            "null": "Transaction type cannot be empty"
-        }
+            error="Invalid transaction type. Valid values: deposit, withdrawal, transfer"
+        )
+        # error_messages={
+        #     "required": "Transaction type is required",
+        #     "null": "Transaction type cannot be empty"
+        # }
     )
     
     from_account_id = fields.Str(
         validate=[
-            validate_uuid,
-            validate.Length(equal=36, error="Invalid account ID length")
-        ],
-        error_messages={
-            "invalid_uuid": "Invalid source account ID format"
-        }
+            # validate_uuid,
+            validate.Regexp(
+                r'^ACCT-[a-zA-Z0-9]{16}$',
+        error="Invalid source account ID format"
+            )
+        ]    
     )
     
     to_account_id = fields.Str(
         validate=[
-            validate_uuid,
-            validate.Length(equal=36, error="Invalid account ID length")
-        ],
-        error_messages={
-            "invalid_uuid": "Invalid destination account ID format"
-        }
+            # validate_uuid,
+      validate.Regexp(
+               r'^ACCT-[a-zA-Z0-9]{16}$',
+        error="Invalid destination account ID format"
+            )
+        ]    
     )
     
     description = fields.Str(
         validate=Length(max=255),
         error_messages={
-            "invalid": "Description must be a string",
+            # "invalid": "Description must be a string",
             "too_long": "Description cannot exceed 255 characters"
         }
     )
     
-    @validates_schema
+    created_at = fields.DateTime(
+        required=True,
+        format='iso',
+        error_messages={"invalid": "Invalid ISO timestamp"}
+    )
+     
+    updated_at = fields.DateTime(
+        format='iso',
+        error_messages={"invalid": "Invalid ISO timestamp"}
+    )
+    
+    @validates
     def validate_transaction_structure(self, data, **kwargs):
         tx_type = data.get('transaction_type')
-        
+          
         match tx_type:
             case 'transfer':
                 if not data.get('from_account_id') or not data.get('to_account_id'):
@@ -88,11 +100,18 @@ class TransactionSchema(Schema):
                     raise ValidationError("Deposits cannot have from_account")
             
             
-    @validates_schema
+    @validates
     def validate_amount_precision(self, data, **kwargs):
-        """Ensure exactly 2 decimal places"""
-        amount = data.get('amount')
-        if amount is not None:
+        """Strict decimal validation"""
+        try:
+            amount = Decimal(str(data['amount'])).normalize()
             if abs(amount.as_tuple().exponent) != 2:
                 raise ValidationError(
-                    "Must have exactly 2 decimal places")
+                    "Must have exactly 2 decimal places", 
+                    field_name="amount"
+                )
+        except (TypeError, InvalidOperation):
+            raise ValidationError(
+                "Invalid amount format", 
+                field_name="amount"
+            )

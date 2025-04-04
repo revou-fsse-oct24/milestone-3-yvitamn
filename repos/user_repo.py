@@ -2,7 +2,7 @@
 from dataclasses import fields
 from typing import Optional
 from models.user_model import User
-from .base_repo import DummyBaseRepository
+from db.base_repo import DummyBaseRepository
 from .account_repo import AccountRepository
 from shared.error_handlers import *
 from datetime import datetime
@@ -23,8 +23,8 @@ class UserRepository(DummyBaseRepository):
         created_user = super().create(entity)
 
         # Update indexes
-        self._add_to_index('email', entity.email, entity.id)
-        self._add_to_index('username', entity.username, entity.id)
+        # self._add_to_index('email', entity.email, entity.id)
+        # self._add_to_index('username', entity.username, entity.id)
         return created_user           
     
     def update(self, entity: User) -> User:
@@ -32,6 +32,11 @@ class UserRepository(DummyBaseRepository):
         existing_user = self.find_by_id(entity.id)
         if not existing_user:
             raise NotFoundError("User not found")
+        
+        old_entity = self.find_by_id(entity.id)
+        if old_entity.token != entity.token:
+            self.db.remove_from_index('users', 'token', old_entity.token, entity.id)
+            self.db.add_to_index('users', 'token', entity.token, entity.id)
 
         # Check for email/username changes
         if existing_user.email != entity.email:
@@ -68,7 +73,9 @@ class UserRepository(DummyBaseRepository):
         user_ids = self.db._indexes['users']['token'].get(token, set())
         return self.find_by_id(next(iter(user_ids))) if user_ids else None
 
-
+    # def update_token(self, user: User) -> User:
+    #     return self.update(user)
+    
     #find user by email
     def find_by_email(self, email: str) -> Optional[User]:
         normalized_email = email.strip().lower()
@@ -79,7 +86,7 @@ class UserRepository(DummyBaseRepository):
 
 
     #find all registered users
-    def find_all(self) -> list[dict]:
+    def find_all(self) -> list[User]:
         # , fields: list[str] = None)
         """Get all users with specified fields"""  
         # default_fields = ["email", "username", "created_at"]
@@ -122,13 +129,13 @@ class UserRepository(DummyBaseRepository):
                 users.append(user)
         return users
 
-    # def delete(self, user_id: str) -> bool:
-    #     user = self.find_by_id(user_id)
-    #     if not user:
-    #         return False
+    def delete(self, user_id: str) -> bool:
+        user = self.find_by_id(user_id)
+        if not user:
+            return False
 
-    #     # Clean up indexes
-    #     self._remove_from_index('email', user.email, user_id)
-    #     self._remove_from_index('username', user.username, user_id)
+        # Clean up indexes
+        # self._remove_from_index('email', user.email, user_id)
+        # self._remove_from_index('username', user.username, user_id)
         
-    #     return super().delete(user_id)
+        return super().delete(user_id)
