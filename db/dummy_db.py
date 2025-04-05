@@ -5,6 +5,8 @@ from datetime import datetime
 # from .database import Database
 from threading import Lock
 
+from marshmallow import ValidationError
+
 
 class AtomicOperation:
     """Context manager for atomic database operations"""
@@ -22,7 +24,6 @@ class AtomicOperation:
     
     
 class DummyDB: #(Database)
-    
     _instance = None  # Class-level variable to store singleton instance
     _class_lock = Lock() # This is a threading lock for thread-safety
     
@@ -30,11 +31,20 @@ class DummyDB: #(Database)
         with cls._class_lock:
             if not cls._instance: # First instantiation
                 cls._instance = super().__new__(cls) # Create new instance
+                
                 # Initialize instance variables in __new__ since we're bypassing __init__
                 cls._instance.data_lock = Lock()
+                cls.collection_locks = {
+                    'users': Lock(),
+                    'accounts': Lock(),
+                    'transactions': Lock()
+                }
                 cls._instance.reset() # Initialize collections
             return cls._instance
-        
+    
+    def get_collection_lock(self, collection: str) -> Lock:
+        return self.collection_locks.get(collection, self.data_lock)
+    
     def reset(self):
         """Initialize all data structures with instance lock"""
         with AtomicOperation(self): #use context manager
@@ -72,22 +82,24 @@ class DummyDB: #(Database)
                      field: str, 
                      value: Any, 
                      entity_id: str):    
-        """index management with auto-creation"""  
-        """Thread-safe index addition with validation"""
+        """Thread-safe index addition with auto-creation"""
         with AtomicOperation(self):  
-            if collection not in self._indexes:
-                raise ValueError(f"Collection {collection} not registered for indexing")
-            
             # Create collection if not exists
-            if collection not in self._indexes[collection]:
-                raise ValueError(f"Field {field} not indexed in {collection}")
-                # self._indexes[collection] = {}   
-                
-            # Create field index if not exists         
-            # if field not in self._indexes[collection]:
-            #     self._indexes[collection][field] = {}
-                
+            if collection not in self._indexes:
+                # raise ValueError(f"Collection {collection} not registered for indexing")
+                 self._indexes[collection] = {}
+                     
+            if field not in self._indexes[collection]:
+                self._indexes[collection][field] = {}
+            
+            # Get reference to the index
             index = self._indexes[collection][field]
+            
+            # Enforce uniqueness for specific fields
+            if collection == 'users' and field in ['email', 'username']:
+                if value in index and len(index[value]) > 0:
+                    raise ValidationError(f"{field} {value} already exists")    
+                
             if value not in index:
                     index[value] = set()
             index[value].add(entity_id)
@@ -97,25 +109,52 @@ class DummyDB: #(Database)
                           field: str, 
                           value: Any, 
                           entity_id: str):
-        """Thread-safe index removal with safety checks"""
+        """Thread-safe index removal with auto-cleanup"""
         with AtomicOperation(self):
             try:
-                if (collection in self._indexes and 
-                field in self._indexes[collection] and
-                value in self._indexes[collection][field] and
-                 entity_id in self._indexes[collection][field][value]):
-                
-                    self._indexes[collection][field][value].remove(entity_id)
-                    if not self._indexes[collection][field][value]:
-                        del self._indexes[collection][field][value]    
+                if collection in self._indexes:
+                    collection_index = self._indexes[collection]
+                    if field in collection_index:
+                        field_index = collection_index[field]
+                        if value in field_index and entity_id in field_index[value]:
+                            field_index[value].remove(entity_id) # Clean up empty indexes   
+                            if not field_index[value]:
+                                del field_index[value]
+                   
             except KeyError:
                 pass #handle missing entries
 
-        
-        def generate_account_number(self) -> str:
-            """Generate secure account numbers"""
-            with AtomicOperation(self):
-                return f"ACCT-{secrets.token_hex(6)}"  # 12-character random
+    def auto_index(self, entity_type: str, entity_id: str, data: dict, unique_fields: list = []):
+        """Automatically index fields marked for a collection"""
+        with AtomicOperation(self):  # Thread-safe
+            for field in self._indexes.get(entity_type, {}):
+                value = data.get(field)
+                if value is not None:
+                    # Check uniqueness before adding
+                    if field in unique_fields:
+                        existing = self._indexes[entity_type][field].get(value, set())
+                        if existing:
+                            raise ValidationError(f"{field} must be unique")
+                    self.add_to_index(entity_type, field, value, entity_id)
+
+
+    def find_by(self, collection: str, field: str, value: Any) -> list:
+        """Generic indexed lookup"""
+        with AtomicOperation(self):  # Thread-safe read
+            if collection not in self._indexes:
+                raise ValueError(f"Collection {collection} not indexed")
+            
+            if field not in self._indexes[collection]:
+                raise ValueError(f"Field {field} not indexed in {collection}")
+            
+            entity_ids = self._indexes[collection][field].get(value, set())
+            return [self.__dict__[collection][_id] for _id in entity_ids]
+
+    
+    def generate_account_number(self) -> str:
+        """Generate secure account numbers"""
+        with AtomicOperation(self):
+            return f"ACCT-{secrets.token_hex(6)}"  # 12-character random
         
         
 #singleton initialization

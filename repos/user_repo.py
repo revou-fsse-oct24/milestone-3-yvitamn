@@ -13,19 +13,20 @@ class UserRepository(DummyBaseRepository):
                       
                       
     def create(self, entity: User) -> User:
-        # Check for existing username/email before creation
-        if self.find_by_username(entity.username):
-            raise ValueError(f"Username {entity.username} already exists")
-        if self.find_by_email(entity.email):
-            raise ValueError(f"Email {entity.email} already registered")
+        #  with self.db.get_collection_lock('users'):
+            # Check for existing username/email before creation
+            if self.find_by_username(entity.username):
+                raise ValueError(f"Username {entity.username} already exists")
+            if self.find_by_email(entity.email):
+                raise ValueError(f"Email {entity.email} already registered")
 
-        # Call parent create (handles ID generation and storage)
-        created_user = super().create(entity)
+            # Call parent create (handles ID generation and storage)
+            created_user = super().create(entity)
 
-        # Update indexes
-        # self._add_to_index('email', entity.email, entity.id)
-        # self._add_to_index('username', entity.username, entity.id)
-        return created_user           
+            # Update indexes
+            # self._add_to_index('email', entity.email, entity.id)
+            # self._add_to_index('username', entity.username, entity.id)
+            return created_user           
     
     def update(self, entity: User) -> User:
         # Get existing user data before update
@@ -78,11 +79,8 @@ class UserRepository(DummyBaseRepository):
     
     #find user by email
     def find_by_email(self, email: str) -> Optional[User]:
-        normalized_email = email.strip().lower()
-        user_ids = self.db._indexes['users']['email'].get(normalized_email, set())
-        if user_ids:
-            return self.find_by_id(next(iter(user_ids)))
-        return None
+        users = self.db.find_by('users', 'email', email)
+        return users[0] if users else None
 
 
     #find all registered users

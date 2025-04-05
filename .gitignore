@@ -22,6 +22,7 @@ venv/
 # Environment files
 .env
 *.env
+*.env.local
 .flaskenv
 !.env.test
 

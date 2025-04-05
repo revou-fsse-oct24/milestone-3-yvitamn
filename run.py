@@ -15,7 +15,7 @@ load_dotenv('.flaskenv')  # Load Flask settings
 # Environment-specific overrides
 env = os.getenv('FLASK_ENV', 'development').lower()
 if env == 'testing':
-    load_dotenv('.env.test', override=True)  # Testing configs override all
+    load_dotenv('.env.test', override=True)  # Testing overrides all
 elif env == 'production':
     load_dotenv('.env.prod', override=True)  # Production overrides
 
@@ -43,7 +43,6 @@ def create_app():
     
     # =============== Blueprint Registration ===============
     blueprints = [
-        
         user_router,
         auth_router,
         admin_router,

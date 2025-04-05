@@ -73,5 +73,18 @@ class TransactionRepository(DummyBaseRepository):
         return [
             t for t in self.collection.values() if t.created_at > cutoff]
 
-   
     
+    # # Find latest transaction across all accounts
+    #     transactions = []
+    #     for acc_id in account_ids:
+    #         # Check both from and to transactions
+    #         transactions += self.transaction_repo.find_by_field('from_account', acc_id)
+    #         transactions += self.transaction_repo.find_by_field('to_account', acc_id)
+
+    #     last_transaction = None
+    #     if transactions:
+    #         last_transaction = sorted(
+    #             transactions,
+    #             key=lambda t: t.created_at,
+    #             reverse=True
+    #         )[0]

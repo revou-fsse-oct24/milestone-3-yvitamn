@@ -75,5 +75,15 @@ class User:
         }    
     
 
+    def to_admin_dict(self) -> dict:
+        """Safe data exposure for admin views"""
+        return {
+            "id": self.id,
+            "username": self.username,
+            "email": self.email,
+            "role": self.role,
+            "created_at": self.created_at,
+            "last_login": self.token_expiry  # Shows last activity
+        }
         
  
