@@ -1,9 +1,4 @@
-
-from datetime import datetime
-import re
-from marshmallow import Schema, fields, validate, validates
-from uuid import UUID
-from shared.error_handlers import *
+from marshmallow import Schema, fields, validate
 
 
 class LoginSchema(Schema):

@@ -1,6 +1,5 @@
 
-from flask import Flask, Blueprint, request, jsonify
-from models.user_model import Transaction
+from flask import Blueprint, Flask, request
 from schemas import transaction_schema
 from schemas.transaction_schema import TransactionSchema
 from services.transaction_service import TransactionService
@@ -9,7 +8,7 @@ from shared.exceptions import *
 from shared.error_handlers import *
 from datetime import datetime
 
-
+app = Flask(__name__)
 transaction_router = Blueprint('transaction', __name__)
 service = TransactionService()
 transaction_schema = TransactionSchema()
@@ -18,9 +17,11 @@ transaction_schema = TransactionSchema()
 @transaction_router.route('/transactions', methods=["GET"])
 @authenticate 
 # @pinprotected should be here
-def get_transactions(user):
+def get_transactions():
     """Get all transactions with optional filters"""
     try:
+        service.set_current_user() 
+        
         # Parse query parameters
         account_id = request.args.get('account_id')
         start_date = request.args.get('start')
@@ -42,7 +43,7 @@ def get_transactions(user):
                 return handle_error("Invalid end_date format. Use ISO 8601", 400)
         
         transactions = service.get_user_transactions(
-            user.id, 
+            service.current_user.id, 
             account_id=account_id,
             filters=filters
         )
@@ -65,10 +66,11 @@ def get_transactions(user):
 @transaction_router.route('/transactions/<string:transaction_id>', methods=["GET"])
 @authenticate
 @account_owner_required
-def get_transactions_details(user, transaction_id):
+def get_transactions_details(transaction_id):
     """Get detailed transaction"""
     try:
-        transaction = service.get_transaction_details(user.id, transaction_id)
+        service.set_current_user()
+        transaction = service.get_transaction_details(service.current_user.id, transaction_id)
         return format_response({
             "data": transaction_schema.dump(transaction) 
         })
@@ -82,17 +84,18 @@ def get_transactions_details(user, transaction_id):
            
 @transaction_router.route('/transactions', methods=['POST'])
 @authenticate           
-def create_transaction(user):
+def create_transaction():
     """Create a new transaction"""  
     try:   
+        service.set_current_user()
         data = transaction_schema.load(request.get_json())        
-        transaction = service.create_transaction(user.id, data)
+        transaction = service.create_transaction(service.current_user.id, data)
         
         return format_response({ 
             "data": {
                 "transaction_id": transaction.public_id,
                 "status": transaction.status,
-                "message": "Transaction created successfully"
+                "message": "Transaction created successfully",
                 "verification_required": transaction.status == 'pending'
             }
         }), 201
@@ -112,12 +115,13 @@ def create_transaction(user):
 # ====================== Security Endpoints ======================
 @transaction_router.route('/transactions/<string:txn_id>/verify', methods=['POST'])
 @authenticate
-def verify_transaction(user, txn_id):
+def verify_transaction(txn_id):
     """Verify pending transaction"""
     try:
+        service.set_current_user()
         token = request.json.get('verification_token')
         transaction = service.verify_transaction(
-            user.id,
+            service.current_user.id,
             txn_id,
             token
         )

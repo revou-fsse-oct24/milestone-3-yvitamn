@@ -3,7 +3,8 @@ import secrets
 from uuid import uuid4
 import uuid
 import bcrypt
-from shared.security import SecurityUtils
+from shared.exceptions import *
+
 
 
 #=============Models=========================    
@@ -30,11 +31,11 @@ class User:
         self.role = role
         self.created_at = datetime.now().isoformat() + 'Z'
         self.updated_at = datetime.now()
-        self.token = None 
+        self.token_hash = None 
         self.token_expiry = None
  
         # PIN handling through property setter
-        self.pin_hash = SecurityUtils.hash_pin(pin)
+        self.pin = pin
         
     @property
     def full_name(self) -> str:
@@ -48,42 +49,60 @@ class User:
     @pin.setter
     def pin(self, value: str):
         """Automatically hash PIN when set"""
+        from shared.security import SecurityUtils
+        valid, msg = SecurityUtils.validate_pin_complexity(value)
+        if not valid:
+            raise SecurityValidationError(msg)
         self.pin_hash = SecurityUtils.hash_pin(value)  # Requires hash_pin()
        
-    def verify_pin(self, pin: str) -> bool:
-        return SecurityUtils.verify_pin(pin, self.pin_hash)
+    def verify_pin(self, plain_pin: str) -> bool:
+        from shared.security import SecurityUtils
+        return SecurityUtils.verify_pin(plain_pin, self.pin_hash)
     
     # token related==========================
     def refresh_token(self):
-        """Generates new auth token"""
-        old_token = self.token
-        self.token, self.token_expiry = SecurityUtils.generate_auth_token()
+        """Generates new auth token""" 
+        from shared.security import SecurityUtils
+         # Invalidate previous token first
+        if self.token_hash:
+            SecurityUtils.invalidate_token(self.token_hash)
         
-        # Cryptographic token invalidation
-        SecurityUtils.invalidate_token(old_token) # If tracking previous tokens
-        # Old token should be invalidated immediately
+        # Generate both raw and hashed tokens
+        raw_token, hashed_token, expiry = SecurityUtils.generate_auth_token()
         
+        # Store ONLY the hash
+        self.token_hash = hashed_token
+        self.token_expiry = expiry
+        
+        return raw_token
+    
+    
+    def logout(self):
+        self.token_hash = None
+        self.token_expiry = None
+        
+    
     def to_api_response(self) -> dict:
         """Safe serialization (excludes sensitive fields)"""
         return {
-            "id": self.id,
+            # "id": self.id,
             "username": self.username,
             "email": self.email,
             "role": self.role,
             "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat() 
+            # "updated_at": self.updated_at.isoformat() 
         }    
     
 
-    def to_admin_dict(self) -> dict:
-        """Safe data exposure for admin views"""
-        return {
-            "id": self.id,
-            "username": self.username,
-            "email": self.email,
-            "role": self.role,
-            "created_at": self.created_at,
-            "last_login": self.token_expiry  # Shows last activity
-        }
+    # def to_admin_dict(self) -> dict:
+    #     """Safe data exposure for admin views"""
+    #     return {
+    #         # "id": self.id,
+    #         "username": self.username,
+    #         "email": self.email,
+    #         "role": self.role,
+    #         "created_at": self.created_at,
+    #         "last_login": self.token_expiry  # Shows last activity
+    #     }
         
  

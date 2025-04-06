@@ -24,7 +24,9 @@ venv/
 *.env
 *.env.local
 .flaskenv
-!.env.test
+.env.test
+.env.prod
+.env.dev
 
 # Ignore any local database files
 db/

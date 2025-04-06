@@ -4,7 +4,6 @@ from uuid import uuid4
 from datetime import datetime
 # from .database import Database
 from threading import Lock
-
 from marshmallow import ValidationError
 
 
@@ -57,7 +56,7 @@ class DummyDB: #(Database)
                 'users': {
                     'email': {}, # For login/unique check
                     'username': {}, # For login/unique check
-                    'token': {} # For auth token validation
+                    'token_hash': {} # For auth token validation
                 },
                 'accounts': {
                     'user_id': {}, # Auto-indexed
@@ -65,14 +64,15 @@ class DummyDB: #(Database)
                     'balance': {}      # For overdraft prevention checks
                 },
                 'transactions': {
-                    'transaction_id': {},
+                    'public_id': {},
                     'from_account': {}, # Auto-indexed
                     'to_account': {}, # Auto-indexed
                     'type': {},
                     'amount': {},
                     'created_at': {},
                     'status': {},
-                    'user_id': {}
+                    'user_id': {},
+                    'verification_token_hash': {} 
                 }
             }
 
@@ -93,12 +93,7 @@ class DummyDB: #(Database)
                 self._indexes[collection][field] = {}
             
             # Get reference to the index
-            index = self._indexes[collection][field]
-            
-            # Enforce uniqueness for specific fields
-            if collection == 'users' and field in ['email', 'username']:
-                if value in index and len(index[value]) > 0:
-                    raise ValidationError(f"{field} {value} already exists")    
+            index = self._indexes[collection][field]  
                 
             if value not in index:
                     index[value] = set()

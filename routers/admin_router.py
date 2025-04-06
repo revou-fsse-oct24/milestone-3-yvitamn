@@ -1,17 +1,15 @@
+# from flask import Blueprint, request
+# from marshmallow import ValidationError
+# from schemas import transaction_schema
+# from schemas.admin_schema import *
+# from services.admin_service import AdminService
+# from shared.auth_helpers import *
+# from shared.error_handlers import *
+# from shared.exceptions import *
 
-
-from flask import Blueprint, request
-from marshmallow import ValidationError
-
-from schemas import transaction_schema
-from schemas.admin_schema import AdminEmailFilterSchema, AdminTransactionQuerySchema, AdminUserQuerySchema, AdminUserUpdateSchema
-from shared.auth_helpers import *
-from shared.error_handlers import *
-from shared.exceptions import *
-
-
-admin_router = Blueprint('admin', __name__, url_prefix='/admin')
-admin_service = AdminService()
+#app = Flask(__name__)
+# admin_router = Blueprint('admin', __name__, url_prefix='/admin')
+# admin_service = AdminService()
 
 
 # ================== Admin-only User Management ==================
@@ -71,54 +69,54 @@ admin_service = AdminService()
 #         return handle_error("Deletion failed", 500)
     
     
-@admin_router.route('/users', methods=['GET'])
-@authenticate
-@admin_required
-def list_all_users():
-    """List all users (admin only)"""
-    try:
-        schema = AdminUserQuerySchema()
-        filters = schema.load(request.args)
+# @admin_router.route('/users', methods=['GET'])
+# @authenticate
+# @admin_required
+# def list_all_users():
+#     """List all users (admin only)"""
+#     try:
+#         schema = AdminUserQuerySchema()
+#         filters = schema.load(request.args)
         
-        users = admin_service.list_users(filters)
-        return format_response([u.to_admin_dict() for u in users])
+#         users = admin_service.list_users(filters)
+#         return format_response([u.to_admin_dict() for u in users])
     
-    except ValidationError as e:
-        return handle_error({"errors": e.messages}, 400)
-    except Exception as e:
-        return handle_error("Failed to fetch users", 500)
+#     except ValidationError as e:
+#         return handle_error({"errors": e.messages}, 400)
+#     except Exception as e:
+#         return handle_error("Failed to fetch users", 500)
 
 
-@admin_router.route('/users/<user_id>', methods=['GET'])
-@authenticate
-@admin_required
-def get_users_accounts(user_id):
-    """Get detailed user accounts summary"""
-    try:
-        summary = admin_service.get_user_summary(user_id)
-        return format_response(summary)
-    except NotFoundError as e:
-        return handle_error(str(e), 404)
+# @admin_router.route('/users/<user_id>', methods=['GET'])
+# @authenticate
+# @admin_required
+# def get_users_accounts(user_id):
+#     """Get detailed user accounts summary"""
+#     try:
+#         summary = admin_service.get_user_summary(user_id)
+#         return format_response(summary)
+#     except NotFoundError as e:
+#         return handle_error(str(e), 404)
 
 
-@admin_router.route('/users/email', methods=['GET'])
-@authenticate
-@admin_required
-def get_user_by_email():
-    """Get user details by exact email match (admin only)"""
-    try:
-        schema = AdminEmailFilterSchema()
-        data = schema.load(request.args)  # Get email from query params
+# @admin_router.route('/users/email', methods=['GET'])
+# @authenticate
+# @admin_required
+# def get_user_by_email():
+#     """Get user details by exact email match (admin only)"""
+#     try:
+#         schema = AdminEmailFilterSchema()
+#         data = schema.load(request.args)  # Get email from query params
         
-        user_data = admin_service.get_user_by_email(data['email'])
-        return format_response(user_data)
+#         user_data = admin_service.get_user_by_email(data['email'])
+#         return format_response(user_data)
         
-    except ValidationError as e:
-        return handle_error({"errors": e.messages}, 400)
-    except NotFoundError as e:
-        return handle_error(str(e), 404)
-    except Exception as e:
-        return handle_error("Failed to fetch user", 500)
+#     except ValidationError as e:
+#         return handle_error({"errors": e.messages}, 400)
+#     except NotFoundError as e:
+#         return handle_error(str(e), 404)
+#     except Exception as e:
+#         return handle_error("Failed to fetch user", 500)
 
 # @admin_router.route('/accounts/<account_id>', methods=['DELETE'])
 # @authenticate

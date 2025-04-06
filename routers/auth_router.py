@@ -1,9 +1,6 @@
-from flask import Flask, Blueprint, request, jsonify
-from db.dummy_db import DummyDB
-from models.user_model import *
-from schemas.user_schema import LoginSchema
+from flask import Blueprint, Flask, request
+from services import auth_service
 from services.auth_service import AuthService
-from services.user_service import UserService
 from shared.exceptions import *
 from shared.error_handlers import *
 from shared.auth_helpers import *
@@ -17,7 +14,7 @@ from datetime import datetime
 #     data = TransactionSchema().load(request.json)
 #     # ... rest of the code
      
-
+app = Flask(__name__)
 auth_router = Blueprint('auth', __name__)
 # login_schema = LoginSchema()
 service = AuthService()
@@ -48,9 +45,10 @@ def handle_login():
  
 @auth_router.route('/logout', methods=['POST'])
 @authenticate
-def handle_logout():
+def handle_logout(user):
     """User logout"""
     try:
+        service.set_current_user() 
         service.logout(user)
         return format_response({"message": "Successfully logged out"})
     except Exception as e:
@@ -59,30 +57,54 @@ def handle_logout():
    
 @auth_router.route('/users/me', methods=['GET'])
 @authenticate
-def get_current_user_profile(user):
-    return format_response({
-            "id": g.user.id,
-            "username": g.user.username,
-            "email": g.user.email,
-            "full_name": g.user.full_name,
-            "role": user.role,
-            "accounts": [acc.account_number for acc in user.accounts] 
-    })
-
-@auth_router.route('/admin/users', methods=['GET'])
-@authenticate  
-@admin_required  
-def get_all_users(user):
-    """Admin-only user listing"""
+def get_current_user_profile():
+    
     try:
-        users = service.get_all_users()
-        return format_response([{
-            "id": u.id,
-            "username": u.username,
-            "email": u.email
-        } for u in users])
-    except ForbiddenError as e:
-        return handle_error(str(e), 403)
+        service.set_current_user() 
+        user = service.current_user 
+        return format_response({
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role,
+                "accounts": [acc.account_number for acc in user.accounts] 
+        })
+    except Exception as e:
+        return handle_error("Failed to fetch user profile", 500)
+
+
+
+#=========ADMIN========
+# @auth_router.route('/admin/users', methods=['GET'])
+# @authenticate  
+# @admin_required  
+# def get_all_users(user):
+#     """Admin-only user listing"""
+#     try:
+#         users = service.get_all_users()
+#         return format_response([{
+#             "id": u.id,
+#             "username": u.username,
+#             "email": u.email
+#         } for u in users])
+#     except ForbiddenError as e:
+#         return handle_error(str(e), 403)
+   
+   
+   
+   
+ #=============================================  
+@auth_router.post('/refresh-token')
+@authenticate
+def refresh_token_endpoint():
+    try:    
+        service.set_current_user()
+        user = service.current_user
+        new_token = auth_service.refresh_token(user.id)
+        return format_response({"token": new_token}) 
+    except Exception as e:
+        return handle_error("Token refresh failed", 500)
     
 # @auth_router.route('/debug/users', methods=["GET"])
 # def handle_debug_users():

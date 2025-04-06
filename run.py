@@ -1,19 +1,22 @@
 import os
 from dotenv import load_dotenv
 from flask import Flask
-from routers import admin_router
-from services.user_service import UserService
-from routers import account_router
-from routers import auth_router
-from routers import user_router
-from routers import transaction_router
+from routers.account_router import account_router
+from routers.auth_router import auth_router
+from routers.user_router import user_router
+from routers.transaction_router import transaction_router
 from shared.error_handlers import register_error_handlers
+from flask_debugtoolbar import DebugToolbarExtension
+import logging
 
-load_dotenv('.env')  # Load secrets
-load_dotenv('.flaskenv')  # Load Flask settings
+
+load_dotenv('.flaskend', override=True)  # Load secrets
 
 # Environment-specific overrides
 env = os.getenv('FLASK_ENV', 'development').lower()
+
+if env == 'development':
+    load_dotenv('.env.dev', override=True)
 if env == 'testing':
     load_dotenv('.env.test', override=True)  # Testing overrides all
 elif env == 'production':
@@ -24,28 +27,36 @@ def create_app():
     app = Flask(__name__)
     
      # =============== Security Configuration ===============
-    # app.config.update(
-    #     SECRET_KEY=os.getenv('SECRET_KEY', 'dev-key-123'),
+    app.config.update(
+        SECRET_KEY=os.getenv('SECRET_KEY', 'dev-key-123'),
     #     SESSION_COOKIE_HTTPONLY=True,
     #     TOKEN_EXPIRES=60*60 # 1 hour in seconds
     
-    # ) 
+    ) 
+    app.config['LOGGING_LEVEL'] = 'DEBUG'  
+    logging.basicConfig(level=logging.DEBUG)
     
+    app.config['ENV'] = os.getenv('FLASK_ENV', 'development')
+    
+    if app.config['ENV'] == 'development':
+        app.debug = True
+        app.logger.info("Running in Development Mode")
     
     # =============== Admin Initialization ===============
-    # if os.getenv('CREATE_ADMIN', 'true').lower() == 'true':
-    if os.getenv('FLASK_ENV') == 'development':
-        try:
-            UserService().create_initial_admin()
-            app.logger.info("Admin user initialized")
-        except Exception as e:
-            app.logger.warning(f"Admin init: {str(e)}")
+    # only created once
+    #if os.getenv('CREATE_ADMIN', 'false').lower() == 'true':
+    # if os.getenv('FLASK_ENV') == 'development':
+        # try:
+        #     UserService().create_initial_admin()
+        #     app.logger.info("Admin user initialized")
+        # except Exception as e:
+        #     app.logger.warning(f"Admin init: {str(e)}")
     
     # =============== Blueprint Registration ===============
     blueprints = [
         user_router,
         auth_router,
-        admin_router,
+        # admin_router,
         account_router,
         transaction_router
     ]
@@ -57,7 +68,7 @@ def create_app():
     
     # =============== Environment-Specific Configuration ===============
     # Configure auto-reload settings & Enable debug mode
-    if app.env == 'development':
+    if app.config['ENV'] == 'development':
         app.config.update(
             TEMPLATES_AUTO_RELOAD=True,
             SEND_FILE_MAX_AGE_DEFAULT=0,
@@ -67,8 +78,7 @@ def create_app():
         
         # Enable better debug output
         app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
-        from flask_debugtoolbar import DebugToolbarExtension
-        DebugToolbarExtension(app)
+        toolbar = DebugToolbarExtension(app)
         
     #should uncomment for production settings    
     # elif app.config['FLASK_ENV'] == 'production':
@@ -100,17 +110,25 @@ if __name__ == '__main__':
         host=os.getenv('HOST', '127.0.0.1'),
         port=int(os.getenv('PORT', 5000)),
         debug=app.debug,
-        use_reloader=True
-        reloader_type='watchdog' 
+        use_reloader=True,
+        reloader_type='watchdog',
         extra_files=[
+             './services/**/*.py',
+             './models/**/*.py',
+             './repos/**/*.py',
+             './shared/*.py',
+             './routers/*.py',
+             './db/*.py',
+            './schemas/*.py',
+            
             # Include environment files
-            '.env', 
-            '.flaskenv',
+            # '.env', 
+            # '.flaskenv',
             
             # Recursively find all Python files
-            *[os.path.join(root, f) 
-            for root, _, files in os.walk('.') 
-            for f in files if f.endswith('.py')]
+            # *[os.path.join(root, f) 
+            # for root, _, files in os.walk('.') 
+            # for f in files if f.endswith('.py')]
         ] 
     )
 

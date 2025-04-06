@@ -1,23 +1,24 @@
-from flask import Flask, Blueprint, request, jsonify
-from models.user_model import Account
+from typing import TYPE_CHECKING
+from flask import Blueprint, Flask, request
 from schemas.account_schema import AccountSchema
+
 from services.account_service import AccountService
-from repos.user_repo import UserRepository
 from shared.auth_helpers import *
 from shared.exceptions import *
 from shared.error_handlers import *
-from datetime import datetime
 
 
+app = Flask(__name__)
 account_router = Blueprint('account', __name__)
 service = AccountService()
 
 #===========================Account Endpoints===================
 @account_router.route('/accounts', methods=["GET"])
 @authenticate
-def get_accounts(user):
+def get_accounts():
     try:
-        accounts = service.get_user_accounts(user.id)
+        service.set_current_user()
+        accounts = service.get_user_accounts(service.user.id)
         return format_response({
             "data": [account.to_api_response() for account in accounts]
         })
@@ -28,12 +29,12 @@ def get_accounts(user):
             
 @account_router.route('/accounts', methods=['POST'])
 @authenticate
-def create_account(user):      
+def create_account():      
     try:
+        service.set_current_user()
         data = AccountSchema().load(request.get_json())
-        
-        account = service.create_account(user.id, data)
-        return format_response(account.to_api_response(), 201)  
+        account = service.create_account(service.user.id, data)
+        return format_response({"data":account.to_api_response()}, 201)  
     except ValidationError as e:
         return handle_error(e.messages, 400)    
     except BusinessRuleViolation as e:
@@ -44,10 +45,10 @@ def create_account(user):
                            
 @account_router.route('/accounts/<account_id>', methods=['GET'])
 @authenticate
-def get_account(user, account_id):
+def get_account(account_id):
     try:
-
-        account = service.get_account(account_id, user.id)
+        service.set_current_user() 
+        account = service.get_account(account_id, service.current_user.id)
         return format_response(account.to_api_response())
     except ForbiddenError as e:
         return handle_error(str(e), 403)

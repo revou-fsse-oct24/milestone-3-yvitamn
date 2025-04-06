@@ -1,7 +1,4 @@
-import os
-from flask import Flask, Blueprint, request
-from models.user_model import User
-from repos.user_repo import UserRepository
+from flask import Blueprint, Flask, request
 from services.user_service import UserService
 from shared.auth_helpers import *
 from shared.exceptions import *
@@ -9,9 +6,8 @@ from shared.error_handlers import *
 from schemas.user_schema import *
 from datetime import datetime
 
-from shared.security import SecurityUtils
 
-
+app = Flask(__name__)
 user_router = Blueprint('user', __name__)
 service = UserService()
 user_schema = UserSchema()
@@ -23,7 +19,8 @@ user_schema = UserSchema()
 def get_current_user_profile():
     """Get authenticated user's profile"""
     try:
-        user = get_current_user()
+        service.set_current_user()
+        user = service.current_user
         return format_response({
             "id": user.id,
             "username": user.username,
@@ -35,20 +32,20 @@ def get_current_user_profile():
         return handle_error("Failed to fetch user profile", 500)
 
 
-@user_router.route('/users', methods=["GET"])
-@authenticate
-@require_role('admin')
-def get_all_users_route(): 
-    try:
-        users = service.get_all_users()
-        return format_response({
-            "users": [u.to_dict() for u in users],
-            "count": len(users)
-        })       
-    except ForbiddenError as e:
-        return handle_error(str(e), 403)
-    except Exception as e:
-        return handle_error("Failed to fetch users", 500)
+# @user_router.route('/users', methods=["GET"])
+# @authenticate
+# @admin_required
+# def get_all_users_route(): 
+#     try:
+#         users = service.get_all_users()
+#         return format_response({
+#             "users": [u.to_dict() for u in users],
+#             "count": len(users)
+#         })       
+#     except ForbiddenError as e:
+#         return handle_error(str(e), 403)
+#     except Exception as e:
+#         return handle_error("Failed to fetch users", 500)
         
             
 @user_router.route('/register', methods=["POST"])
@@ -85,7 +82,8 @@ def register_user_route():
 @authenticate
 def update_current_user():
     try:
-        current_user = get_current_user()
+        service.set_current_user()
+        current_user = service.current_user
         data = request.get_json()
         
         updated_user = service.update_self(
@@ -113,31 +111,33 @@ def update_current_user():
         return handle_error("Update failed", 500)
 
     
-@user_router.route('/users/<string:user_id>', methods=["DELETE"])
-@authenticate
-@require_role('admin')
-def delete_user(user_id):
-    try:
-        service.delete_user(user_id)
-        return format_response({"message": "User deleted successfully"}, status_code=204)
-    except NotFoundError as e:
-        return handle_error(str(e), 404)
-    except ForbiddenError as e:
-        return handle_error(str(e), 403)
-    except Exception as e:
-        return handle_error("Deletion failed", 500)
+# @user_router.route('/users/<string:user_id>', methods=["DELETE"])
+# @authenticate
+# @admin_required
+# def delete_user(user_id):
+#     try:
+#         service.set_current_user() 
+#         service.delete_user(user_id)
+#         return format_response({"message": "User deleted successfully"}, status_code=204)
+#     except NotFoundError as e:
+#         return handle_error(str(e), 404)
+#     except ForbiddenError as e:
+#         return handle_error(str(e), 403)
+#     except Exception as e:
+#         return handle_error("Deletion failed", 500)
                 
       
 @user_router.route('/users/me/pin', methods=['PUT'])
 @authenticate
 def update_pin():
     try:
-        current_user = get_current_user()
+        service.set_current_user() 
+        current_user = service.current_user
         data = request.get_json()
         service.change_pin(
             user_id=current_user.id,
             old_pin=data['old_pin'],
-            new_pin = SecurityUtils.hash_pin(request.json['new_pin'])
+            new_pin =data['new_pin']
         )
         return format_response({"message": "PIN updated successfully"})
     except ValidationError as e:
@@ -146,3 +146,5 @@ def update_pin():
         return handle_error(str(e), 401)
     except Exception as e:
         return handle_error("PIN update failed", 500)
+    
+    

@@ -1,17 +1,16 @@
 from datetime import datetime, timedelta
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 import secrets
 from typing import Optional
 from uuid import uuid4
+from flask import current_app
+
+
 
 class Transaction:
     def __init__(self, 
                  transaction_type:str,
                  amount: Decimal, 
-                #  from_balance_before: float
-                #  from_balance_after: float
-                #  to_balance_before: float
-                #  to_balance_after: float
                  from_account_id: Optional[str]=None, 
                  to_account_id: Optional[str]=None, 
                  description:str = ""):
@@ -40,13 +39,17 @@ class Transaction:
         self.created_at = datetime.now().isoformat(timespec='milliseconds') + 'Z'
         self.updated_at = self.created_at  # Initialize with creation time
         
-        # Transaction lifecycle
+        # Transaction security - NOW HASHED
         self.status = "pending"
-        self._verification_token = secrets.token_urlsafe(32) # For sensitive operations
-        self.token_expiry = datetime.now() + timedelta(minutes=15)  # Short-lived token
+        self.verification_token_hash = None
+        self.token_expiry = None
+        
+        # Generate secure verification token
+        self._generate_verification_token()
         
         # Validate after assignment
         self._validate_initial_state()
+
 
     def _validate_initial_state(self):
         """Validate core business rules during initialization"""
@@ -60,28 +63,49 @@ class Transaction:
         if self.transaction_type == 'withdrawal' and not self.from_account_id:
             raise ValueError("Withdrawals require source account")
         
+        
     def to_api_response(self) -> dict:
         """Safe serialization for API responses"""
         return {
             "transaction_id": self.public_id,
             "type": self.transaction_type,
-            "amount": str(self.amount),
+            "amount": str(self.amount.quantize(Decimal('0.00'))),
             # float(self.amount.quantize(Decimal('0.00'), ROUND_HALF_UP)),
             "from_account": self.from_account_id,
             "to_account": self.to_account_id,
             "status": self.status,
             "description": self.description,
             "created_at": self.created_at,
-            "updated_at": self.created_at
+            # Excluded fields:
+            # - id (internal UUID) 
+            # - verification_token_hash
+            # - token_expiry
+            # - updated_at (if not needed by frontend)
         }
+
 
     def update_status(self, new_status: str):
         """Update transaction status with timestamp"""
         self.status = new_status.lower()
         self.updated_at = datetime.now().isoformat(timespec='milliseconds') + 'Z'
 
+
+    def _generate_verification_token(self):
+        """Secure token generation and storage"""
+        from shared.security import SecurityUtils
+        current_app.logger.info(f"Generated verification token for TX-{self.public_id}")
+        raw_token = secrets.token_urlsafe(32)
+        self.verification_token_hash = SecurityUtils.hash_token(raw_token)
+        self.token_expiry = datetime.now() + timedelta(minutes=15)
+        return raw_token
+
+
     def validate_token(self, token: str) -> bool:
         """Constant-time verification token check"""
-        return secrets.compare_digest(token, self._verification_token)
+        from shared.security import SecurityUtils
+        return SecurityUtils.validate_token(
+            raw_token=token,
+            hashed_token=self.verification_token_hash
+        )
         
         

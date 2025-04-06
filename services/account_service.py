@@ -1,9 +1,7 @@
 from decimal import Decimal
-from repos.account_repo import AccountRepository
-from repos.transaction_repo import TransactionRepository
-from repos.user_repo import UserRepository       
+from models.account_model import Account
+from repos.account_repo import AccountRepository  
 import uuid
-from models.user_model import Account
 from schemas.account_schema import AccountSchema
 from schemas.user_schema import *
 from shared.error_handlers import *
@@ -13,15 +11,13 @@ from shared.error_handlers import *
 class AccountService:
     def __init__(self):
         self.account_repo = AccountRepository()
-        # self.user_repo = UserRepository()
-        # self.transaction_repo = TransactionRepository()
         self.schema = AccountSchema()
         
     def create_account(self, user_id: str, data: dict) -> Account:
         # Validate input
         validated = self.schema.load(data) 
         # Generate account
-        return self.repo.create(Account(
+        return self.account_repo.create(Account(
             user_id=user_id,
             balance=Decimal(validated['initial_balance']),
             account_type=validated['account_type']
@@ -65,12 +61,12 @@ class AccountService:
             "last_transaction": max(t.created_at for t in transactions).isoformat() if transactions else None
         }
         
-    def deactivate_account(self, account_id: str, user_id: str) -> Account:
-        account = self.get_account(account_id, user_id)
-        if account.balance != Decimal('0'):
-            raise BusinessRuleViolation("Cannot deactivate account with balance")
-        account.is_active = False
-        return self.account_repo.update(account)
+    # def deactivate_account(self, account_id: str, user_id: str) -> Account:
+    #     account = self.get_account(account_id, user_id)
+    #     if account.balance != Decimal('0'):
+    #         raise BusinessRuleViolation("Cannot deactivate account with balance")
+    #     account.is_active = False
+    #     return self.account_repo.update(account)
     
     # def delete_account(self, account_id: str, user_id: str) -> bool:
     #     account = self.get_account(account_id, user_id)

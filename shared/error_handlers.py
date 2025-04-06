@@ -1,30 +1,7 @@
-from functools import wraps
-from flask import app, current_app, jsonify, request
+from flask import jsonify
 from marshmallow import ValidationError
 from werkzeug.exceptions import HTTPException
 from .exceptions import *
-
-# def handle_exceptions(f):
-#     @wraps(f)
-#     def wrapper(*args, **kwargs):
-#         try:
-#             return f(*args, **kwargs)
-#         except APIException as e:
-#             # Add request context to API exceptions
-#             e.details = getattr(e, 'details', {})
-#             e.details.update({
-#                 'endpoint': request.endpoint,
-#                 'method': request.method
-#             })
-#             raise e  # Re-raise for global handler
-#         except Exception as e:
-#             # Log unexpected errors with request context
-#             current_app.logger.error(
-#                 f"Unexpected error in {request.method} {request.path}: {str(e)}",
-#                 exc_info=True
-#             )
-#             raise e
-#     return wrapper
 
 
 def format_response(data=None, success=True, status_code=200):
@@ -52,7 +29,7 @@ def register_error_handlers(app):
     def handle_api_exception(e):
         return jsonify({
             "error": e.description,
-            "code": e.code
+            "code": e.code,
             "details": getattr(e, 'details', None)
         }), e.code
         
@@ -98,6 +75,11 @@ def register_error_handlers(app):
         }), 404
             
 
+   
+    # @app.errorhandler(InvalidCredentialsError)
+    # def handle_invalid_creds(e):
+    #     SecurityUtils.handle_failed_login(request.email)  # If implementing lockouts
+    #     return format_response({"message": str(e)}, False, 401)
     
    
     

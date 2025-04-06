@@ -1,11 +1,12 @@
+
+from repos import user_repo
 from repos.user_repo import UserRepository 
-import secrets
-import uuid
-from models.user_model import User
 from schemas.auth_schema import LoginSchema
 from schemas.user_schema import *
 from shared.error_handlers import *
 from shared.security import SecurityUtils
+from shared.exceptions import *
+from db.dummy_db import dummy_db_instance  
 
 
 #=================================Auth Service====================   
@@ -16,6 +17,7 @@ class AuthService:
     def __init__(self):
         self.user_repo = UserRepository()
         self.schema = LoginSchema()
+
         
     def login(self, credentials: dict):
         """Secure login with PIN validation and token generation"""
@@ -27,30 +29,47 @@ class AuthService:
         if not user or not SecurityUtils.verify_pin(validated['pin'], user.pin_hash):
             raise InvalidCredentialsError("Invalid username or PIN")
         
-        token, expiry = SecurityUtils.generate_auth_token()
-        user.token = SecurityUtils.hash_token(token)
-        user.token_expiry = expiry
-        self.user_repo.update(user)
-        # print(f"Generated new token: {user.token}")
-  
+        # Use centralized refresh
+        raw_token = self.refresh_token(user.id)
+        
         return {
-            "user": user,
-            "token": token,
-            "expiry": expiry
+            "user": user.to_api_response(),
+            "token": raw_token,
+            "expiry": user.token_expiry
         }
     
     
     def logout(self, user):
         """Secure logout with cryptographic token invalidation"""
-        user.token = None
-        user.token_expiry = None
-        self.user_repo.update(user)
-        SecurityUtils.invalidate_token(user.token)
-        # print(f"Token invalidated for user {user.id}")    
+        with dummy_db_instance.get_collection_lock('users'):   
+            user.token_hash = None
+            user.token_expiry = None
+            self.user_repo.update(user)
+              
         
     def get_all_users(self):
         """Admin-only user listing"""
         return self.user_repo.find_all()
+    
+    
+    #==================================================
+    def refresh_token(user_id: str) -> str:
+        """Centralized token refresh usable anywhere"""
+        
+        user = user_repo.find_by_id(user_id)
+            
+        if not user:
+            raise NotFoundError(f"User {user_id} does not exist")
+                
+        raw_token, hashed_token, expiry = SecurityUtils.generate_auth_token()
+            
+        with dummy_db_instance.get_collection_lock('users'):    
+            # Automatically invalidates old token by replacement
+            user.token_hash = hashed_token
+            user.token_expiry = expiry
+            user_repo.update(user)  # Auto-handles indexes
+            
+            return raw_token
 
 
 

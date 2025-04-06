@@ -1,17 +1,17 @@
 import os
 from typing import Optional
-from venv import logger
-from dotenv import load_dotenv
+from flask import current_app
+from db.dummy_db import AtomicOperation
+from repos import *
+from models.user_model import User
 from repos.account_repo import AccountRepository
 from repos.transaction_repo import TransactionRepository
 from repos.user_repo import UserRepository
-import uuid
-from models.user_model import User
 from schemas.user_schema import *
-from shared.auth_helpers import get_current_user
+from shared.auth_helpers import *
 from shared.error_handlers import *
-from datetime import datetime, timedelta
-from shared.security import SecurityUtils
+from datetime import datetime
+from shared.security import *
 # from sqlalchemy.exc import SQLAlchemyError
 
 # load_dotenv('.env')  # Load secrets
@@ -24,8 +24,13 @@ class UserService:
     def __init__(self, current_user: Optional[User] = None):
         self.user_repo = UserRepository()
         self.schema = UserSchema()
-        self.current_user = current_user or get_current_user()
+        self.current_user = current_user 
    
+   
+    def set_current_user(self):
+        """Sets the current user using get_current_user()"""
+        self.current_user = get_current_user()
+        
         
     def register_user(self, user_data: dict) -> User:
         #Validate input format
@@ -40,7 +45,9 @@ class UserService:
         
         #Business logic validation (require database access)
         # Validate PIN complexity
-        self._validate_pin_complexity(pin) 
+        is_valid, message = SecurityUtils.validate_pin_complexity(pin)
+        if not is_valid:
+            raise ValueError(message)
       
         #check existence
         if self.user_repo.email_exists(email):
@@ -64,53 +71,53 @@ class UserService:
     
     
     
-    def create_initial_admin(self):
-        """Create admin user with env variables"""
-        # List of environment variables required for admin creation
-        required_vars = ['ADMIN_USERNAME', 'ADMIN_EMAIL', 'ADMIN_INITIAL_PIN']
+    # def create_initial_admin(self):
+    #     """Create admin user with env variables"""
+    #     # List of environment variables required for admin creation
+    #     required_vars = ['ADMIN_USERNAME', 'ADMIN_EMAIL', 'ADMIN_INITIAL_PIN']
 
-        # Check which required variables are missing from the environment
-        missing = [var for var in required_vars if not os.getenv(var)]
-        # ^ Security Impact: Ensures no silent failures for missing credentials
+    #     # Check which required variables are missing from the environment
+    #     missing = [var for var in required_vars if not os.getenv(var)]
+    #     # ^ Security Impact: Ensures no silent failures for missing credentials
 
-        # If any variables are missing...
-        if missing:
-            # Create error message listing missing variables
-            msg = f"Missing admin env vars: {', '.join(missing)}"
-            # ^ Audit Value: Helps track configuration issues
+    #     # If any variables are missing...
+    #     if missing:
+    #         # Create error message listing missing variables
+    #         msg = f"Missing admin env vars: {', '.join(missing)}"
+    #         # ^ Audit Value: Helps track configuration issues
             
-            # Production Environment: Fail hard and fast
-            if os.getenv('FLASK_ENV') == 'production':
-                raise RuntimeError(msg)
-                # ^ Security Critical: Prevents deployment with incomplete security config
+    #         # Production Environment: Fail hard and fast
+    #         if os.getenv('FLASK_ENV') == 'production':
+    #             raise RuntimeError(msg)
+    #             # ^ Security Critical: Prevents deployment with incomplete security config
             
-            # Development/Staging: Warn but continue
-            else:
-                current_app.logger.warning(f"{msg} - Using development defaults")
-                # ^ Security Note: Tradeoff between security and development convenience
-                # Risk: Could lead to default credentials in non-prod environments
+    #         # Development/Staging: Warn but continue
+    #         else:
+    #             current_app.logger.warning(f"{msg} - Using development defaults")
+    #             # ^ Security Note: Tradeoff between security and development convenience
+    #             # Risk: Could lead to default credentials in non-prod environments
         
-        admin_data = {
-            'username': os.getenv('ADMIN_USERNAME', 'dev_admin'),
-            'email': os.getenv('ADMIN_EMAIL', 'admin@localhost'),
-            'pin': SecurityUtils.hash_pin(os.getenv('ADMIN_INITIAL_PIN', '00000000')),
-            'first_name': 'System',
-            'last_name': 'Administrator',
-            'role': 'admin'
-        }
+    #     admin_data = {
+    #         'username': os.getenv('ADMIN_USERNAME', 'dev_admin'),
+    #         'email': os.getenv('ADMIN_EMAIL', 'admin@localhost'),
+    #         'pin': SecurityUtils.hash_pin(os.getenv('ADMIN_INITIAL_PIN', '00000000')),
+    #         'first_name': 'System',
+    #         'last_name': 'Administrator',
+    #         'role': 'admin'
+    #     }
         
-        if not self.user_repo.find_by_email(admin_data['email']):
-            try:
-                admin = User(**admin_data)
-                admin.refresh_token()
-                self.user_repo.create(admin)
-            except Exception as e:
-                current_app.logger.error(f"Admin creation failed: {str(e)}")
-        else:
-            current_app.logger.info("Admin already exists")
+    #     if not self.user_repo.find_by_email(admin_data['email']):
+    #         try:
+    #             admin = User(**admin_data)
+    #             admin.refresh_token()
+    #             self.user_repo.create(admin)
+    #         except Exception as e:
+    #             current_app.logger.error(f"Admin creation failed: {str(e)}")
+    #     else:
+    #         current_app.logger.info("Admin already exists")
   
     
-    def authenticate_user(self, identifier: str, pin: str) -> User:
+    def authenticate_user(self, identifier: str, plain_pin: str) -> User:
         """Authenticate by username/email with PIN"""
         user = (self.user_repo.find_by_email(identifier) 
                 or self.user_repo.find_by_username(identifier))
@@ -119,17 +126,19 @@ class UserService:
         # if user.account_locked_until and user.account_locked_until > datetime.now():
         # raise AccountLockedError()
         
-        if not user or not user.verify_pin(pin):
+        if not user or not user.verify_pin(plain_pin):
             # user.failed_login_attempts += 1
             # if user.failed_login_attempts >= 3:
             #     user.account_locked_until = datetime.now() + timedelta(minutes=15)
             # self.user_repo.update(user)
             raise InvalidCredentialsError("Invalid credentials")
-            
+        
+        # Session expiry check    
         if user.token_expiry and user.token_expiry < datetime.now():
             raise InvalidTokenError("Session expired")
         
-        user.refresh_token()
+        self.refresh_token()  
+        
         self.user_repo.update(user)    
         return user
    
@@ -185,71 +194,72 @@ class UserService:
         return self.user_repo.update(user)
 
 
-    def update_other_user(self, target_user_id: str, update_data: dict) -> User:
-        """Admin-only user updates"""
-        admin = get_current_user()
-        if admin.role != 'admin':
-            raise ForbiddenError("Admin privileges required")
+    # def update_other_user(self, target_user_id: str, update_data: dict) -> User:
+    #     """Admin-only user updates"""
+    #     admin = get_current_user()
+    #     if admin.role != 'admin':
+    #         raise ForbiddenError("Admin privileges required")
             
-        target_user = self.user_repo.find_by_id(target_user_id)
-        return self._update_user(target_user, update_data)
+    #     target_user = self.user_repo.find_by_id(target_user_id)
+    #     return self._update_user(target_user, update_data)
 
 
-    def change_pin(self, old_pin: str, new_pin: str) -> User:
-        user = get_current_user()
-        # logger.info(f"PIN change initiated for user {user.id}")
+    # def change_pin(self, old_pin: str, new_pin: str) -> User:
+    #     user = get_current_user()
+    #     # logger.info(f"PIN change initiated for user {user.id}")
         
-        # Verify current PIN    
-        if not SecurityUtils.verify_pin(old_pin, user.pin_hash):
-            raise InvalidCredentialsError("Invalid current PIN")
+    #     # Verify current PIN    
+    #     if not SecurityUtils.verify_pin(old_pin, user.pin_hash):
+    #         raise InvalidCredentialsError("Invalid current PIN")
         
-        try:
-            # Validate and hash new PIN
-            user.pin = new_pin # Uses property setter, calls SecurityUtils.hash_pin internally
-        except SecurityValidationError as e:
-            raise ValidationError(str(e))
-        except ValueError as e:
-            raise ValidationError(str(e))
+    #     try:
+    #         # Validate and hash new PIN
+    #         user.pin = new_pin # Uses property setter, calls SecurityUtils.hash_pin internally
+            
+    #     except SecurityValidationError as e:
+    #         raise ValidationError(str(e))
+    #     except ValueError as e:
+    #         raise ValidationError(str(e))
 
-        user.updated_at = datetime.now()  
-        # Security log
-        # print(f"User {user.id} changed PIN at {datetime.now()}")
-        self.user_repo.update(user)
-         # Secure logging
-        current_app.logger.info(
-            f"PIN changed for user {user.id}",
-            extra={
-                'category': 'SECURITY',
-                'user_id': user.id,
-                'action': 'PIN_CHANGE'
-                }
-        )
-        return user
+    #     user.updated_at = datetime.now()  
+    #     # Security log
+    #     # print(f"User {user.id} changed PIN at {datetime.now()}")
+    #     self.user_repo.update(user)
+    #      # Secure logging
+    #     current_app.logger.info(
+    #         f"PIN changed for user {user.id}",
+    #         extra={
+    #             'category': 'SECURITY',
+    #             'user_id': user.id,
+    #             'action': 'PIN_CHANGE'
+    #             }
+    #     )
+    #     return user
     
     
 
-    def delete_user(self, user_id: str):
-        """Atomic user deletion"""
-        # try:
-        with self.user_repo.db.transaction():  # Database transaction
-                user = self.user_repo.find_by_id(user_id)
-                if not user:
-                    raise NotFoundError("User not found")
+    # def delete_user(self, user_id: str):
+    #     """Atomic user deletion"""
+    #     # try:
+    #     with AtomicOperation(self.user_repo.db):  # Database transaction
+    #             user = self.user_repo.find_by_id(user_id)
+    #             if not user:
+    #                 raise NotFoundError("User not found")
         
-                # Delete related accounts
-                account_repo = AccountRepository()
-                transaction_repo = TransactionRepository()
+    #             # Delete related accounts
+    #             account_repo = AccountRepository()
+    #             transaction_repo = TransactionRepository()
                 
-                for acc in account_repo.find_by_user(user_id):
-                    #transaction cleanup:
-                    for txn in transaction_repo.find_by_account(acc.id):
-                        transaction_repo.delete(txn.id)
-                    # Then delete account
-                    account_repo.delete(acc.id)
-                # Delete user   
-                self.user_repo.delete(user_id)
+    #             for acc in account_repo.find_by_user(user_id):
+    #                 #transaction cleanup:
+    #                 for txn in transaction_repo.find_by_account(acc.id):
+    #                     transaction_repo.delete(txn.id)
+    #                 # Then delete account
+    #                 account_repo.delete(acc.id)
+    #             # Delete user   
+    #             self.user_repo.delete(user_id)
                 
-                current_app.logger.info(f"User {user_id} deleted successfully")
+    #             current_app.logger.info(f"User {user_id} deleted successfully")
             # AuditLog.create(
             #     user_id=user_id,
             #     action="USER_DELETION",

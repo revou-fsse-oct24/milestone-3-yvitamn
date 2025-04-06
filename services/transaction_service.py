@@ -1,12 +1,15 @@
+from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Optional
+from flask import current_app
 from models.account_model import Account
 from repos import account_repo
 from repos import transaction_repo
 from repos.transaction_repo import TransactionRepository   
 from repos.account_repo import AccountRepository    
 import uuid
-from models.user_model import Transaction
+from models.transaction_model import Transaction 
+from models.user_model import User
 from schemas.transaction_schema import TransactionSchema
 from shared.error_handlers import *
 from shared.exceptions import *
@@ -22,13 +25,15 @@ class TransactionService:
      
         
     def create_transaction(self, user_id: str, data: dict) -> Transaction:
+        
+        
         # Validate and deserialize input
         validated_data = self.schema.load(data)
         transaction_type = validated_data['type']
         amount = self._validate_amount(validated_data['amount'])
         
         try:
-            with self.account_repo.atomic_update() and self.transaction_repo.atomic_update():
+            with self.account_repo.atomic_update(), self.transaction_repo.atomic_update():
                 # Ownership verification
                 from_account = self._validate_source_account(
                     user_id, transaction_type, validated_data, amount
@@ -162,6 +167,11 @@ class TransactionService:
                 raise InvalidAccountError("Destination account not found")
             if data['type'] == 'deposit' and account.user_id != user_id:
                 raise InvalidAccountError("Cannot deposit to another user's account")
+            # if account.status != 'active':
+            #     raise BusinessRuleViolation("Destination account is not active")
+            # if account.currency != from_account.currency:  # Add currency check
+            #     raise BusinessRuleViolation("Currency mismatch")
+            
             return account
         return None   
                                    
@@ -180,7 +190,7 @@ class TransactionService:
                 )
                 elif txn_type == 'withdrawal':
                     self.account_repo.update_balance(
-                    to_account.id, 
+                    from_account.id, 
                     -amount
                 )
                 elif txn_type == 'transfer':
@@ -204,6 +214,15 @@ class TransactionService:
             transaction.status = f'failed: {reason}'
             self.transaction_repo.update(transaction)
         raise TransactionFailedError(reason)
+    
+    
+    def verify_transaction(self, user_id: str, txn_id: str, token: str) -> Transaction:
+        txn = self.get_transaction_details(user_id, txn_id)
+        if not txn.validate_token(token):
+            raise InvalidTokenError("Invalid verification token")
+        if datetime.now() > txn.token_expiry:
+            raise InvalidTokenError("Verification token expired")
+        return self.transaction_repo.update_status(txn.id, 'completed')
     
     
     def get_transaction_details(self, user_id: str, transaction_id: str) -> Transaction:

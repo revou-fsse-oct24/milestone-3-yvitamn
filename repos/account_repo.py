@@ -3,39 +3,44 @@ from decimal import Decimal
 from typing import List, Optional
 from db.dummy_db import AtomicOperation
 from models.transaction_model import Transaction
-from models.user_model import Account
+from models.account_model import Account
 from db.base_repo import DummyBaseRepository
 from shared.error_handlers import *
 from datetime import datetime
 
 
-class AccountRepository(DummyBaseRepository):
+class AccountRepository(DummyBaseRepository[Account]):
     def __init__(self):
-        super().__init__(Account, 'accounts')
+        super().__init__(
+            model=Account, 
+            collection_name='accounts',
+            unique_fields=['account_number', 'user_id'] 
+            )
         
-        
-    def create(self, entity: Account) -> Account:
-       # Check for duplicate account number
-        with AtomicOperation(self.db):
-            if self.find_by_account_number(entity.account_number):
-                raise BusinessRuleViolation("Account number already exists")
-        return super().create(entity)
+    def create(self, entity_data: dict) -> Account:
+        """Create account with validation"""
+        return super().create(entity_data)
         
     
     def find_by_user(self, user_id: str) -> list[Account]:
-        """Get all accounts for a user using index"""
+        """Find accounts by user ID"""
         return self.find_by_field('user_id', user_id)
 
 
     def find_by_account_number(self, number: str) -> Optional[Account]:
-        account_ids = self.db._indexes['accounts']['account_number'].get(number, set())
-        return self.find_by_id(next(iter(account_ids))) if account_ids else None
-
-
+        """Find account by account number"""
+        accounts = self.find_by_field('account_number', number)
+        return accounts[0] if accounts else None
+       
+    
     def update_balance(self, account_id: str, delta: Decimal) -> Account:
         """Atomic balance update"""
         def update_fn(account: Account):
-            new_balance = account.balance + delta
+            # if account.account_type == 'credit':
+            #     # Allow negative balances for credit accounts
+            #     new_balance = account.balance + delta
+            # else:
+            new_balance = account.balance + delta 
             if new_balance < Decimal('0'):
                 raise InsufficientBalanceException(
                     account_id=account.id,
@@ -45,18 +50,16 @@ class AccountRepository(DummyBaseRepository):
             
             account.balance = new_balance
             account.updated_at = datetime.now().isoformat() + 'Z'
-            return account
-        
+            return account  
         return self.atomic_update(account_id, update_fn)
 
 
     def transfer_funds(self, from_id: str, to_id: str, amount: Decimal) -> tuple[Account, Account]:
         """Atomic funds transfer between accounts"""
         with AtomicOperation(self.db): 
-            return(
-            self.update_balance(from_id, -amount),
-            self.update_balance(to_id, amount)
-            )
+            sender = self.update_balance(from_id, -amount),
+            receiver = self.update_balance(to_id, amount)
+            return sender, receiver
        
     
     def is_account_owner(self, account_id: str, user_id: str) -> bool:
@@ -65,12 +68,14 @@ class AccountRepository(DummyBaseRepository):
         return bool(account and account.user_id == user_id)
     
     
-    def _account_number_exists(self, number: str) -> bool:
+    def find_by_account_number(self, number: str) -> bool:
+        """Check if account number exists"""
         return any(a.account_number == number 
                 for a in self.collection.values())
     
     
-    def get_user_accounts(self, user_id: str) -> List[Account]:
+    def get_user_accounts(self, account_id: str, user_id: str) -> List[Account]:
+        """Get all accounts for a user"""
         return self.find_by_field('user_id', user_id)
     
     

@@ -1,7 +1,7 @@
 
 from decimal import Decimal, InvalidOperation
 import uuid
-from marshmallow.validate import Range, Length, OneOf
+from marshmallow.validate import Length
 from marshmallow import Schema, fields, ValidationError, validates, validate
 
 # def validate_uuid(value):
@@ -41,7 +41,7 @@ class TransactionSchema(Schema):
         validate=[
             # validate_uuid,
             validate.Regexp(
-                r'^ACCT-[a-zA-Z0-9]{16}$',
+               r'^ACCT-[a-f0-9]{12}$',
         error="Invalid source account ID format"
             )
         ]    
@@ -51,7 +51,7 @@ class TransactionSchema(Schema):
         validate=[
             # validate_uuid,
       validate.Regexp(
-               r'^ACCT-[a-zA-Z0-9]{16}$',
+               r'^ACCT-[a-f0-9]{12}$',
         error="Invalid destination account ID format"
             )
         ]    
