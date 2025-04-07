@@ -33,10 +33,11 @@ def create_app():
     #     TOKEN_EXPIRES=60*60 # 1 hour in seconds
     
     ) 
-    app.config['LOGGING_LEVEL'] = 'DEBUG'  
-    logging.basicConfig(level=logging.DEBUG)
-    
     app.config['ENV'] = os.getenv('FLASK_ENV', 'development')
+    
+    app.config['LOGGING_LEVEL'] = 'DEBUG'  
+    # app.logger.setLevel(logging.DEBUG)
+    
     
     if app.config['ENV'] == 'development':
         app.debug = True
@@ -65,6 +66,7 @@ def create_app():
         app.register_blueprint(bp, url_prefix='/api/v1')
     
     register_error_handlers(app)
+    
     
     # =============== Environment-Specific Configuration ===============
     # Configure auto-reload settings & Enable debug mode

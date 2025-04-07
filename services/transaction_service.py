@@ -74,26 +74,6 @@ class TransactionService:
             )
     
     
-    def _verify_account_ownership(self, account_id: str, 
-                                  user_id: Optional[str], 
-                                #   allow_third_party=False) -> Optional[Account]:
-                                error_msg: str)-> Account:
-        account = self.account_repo.find_by_id(account_id)
-        if not account:
-            current_app.logger.warning(f"Account not found: {account_id}")
-            raise InvalidAccountError(error_msg)
-            
-        # if not allow_third_party and account.user_id != user_id:
-        #     raise ForbiddenError("Account ownership verification failed")
-        if user_id and account.user_id != user_id:
-            current_app.logger.warning(
-                f"Ownership violation: User {user_id} tried accessing account {account_id}"
-            )
-            raise ForbiddenError(error_msg)
-        
-        return account
-    
-    
     def _validate_amount(self, value: str) -> Decimal:
         """Validate and normalize currency amount"""
         try:
@@ -175,39 +155,6 @@ class TransactionService:
             return account
         return None   
                                    
-                                       
-    def _execute_update_balances(self, txn_type: str,
-                                 from_account: Optional[Account],  
-                                 to_account: Optional[Account],  
-                                 amount: Decimal):
-        """Atomic balance operations"""
-        try:
-            # with self.account_repo.atomic_update():
-                if txn_type == 'deposit':
-                    self.account_repo.update_balance(
-                    to_account.id, 
-                    amount
-                )
-                elif txn_type == 'withdrawal':
-                    self.account_repo.update_balance(
-                    from_account.id, 
-                    -amount
-                )
-                elif txn_type == 'transfer':
-                    self.account_repo.transfer_funds(
-                    from_account.id, 
-                    to_account.id, 
-                    amount
-                )
-                          
-        except InsufficientBalanceException as e:
-            e.details = {
-                'transaction_type': txn_type,
-                'from_account': from_account.id if from_account else None,
-                'amount': float(amount)
-            }
-            raise
-
 
     def _fail_transaction(self, transaction: Optional[Transaction], reason: str) -> Transaction:
         if transaction:
@@ -241,9 +188,7 @@ class TransactionService:
         return transaction
     
     
-    def get_account_transactions(self, account_id: str) -> list[Transaction]:
-        """Get transactions for specific account"""
-        return self.transaction_repo.find_by_account(account_id)
+    
     
     
     def get_user_transactions(self, user_id, filters=None):

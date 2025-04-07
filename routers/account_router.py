@@ -1,12 +1,13 @@
 from typing import TYPE_CHECKING
 from flask import Blueprint, Flask, request
 from schemas.account_schema import AccountSchema
-
+import logging
 from services.account_service import AccountService
 from shared.auth_helpers import *
 from shared.exceptions import *
 from shared.error_handlers import *
 
+logging.setLevel(logging.DEBUG)
 
 app = Flask(__name__)
 account_router = Blueprint('account', __name__)
@@ -17,12 +18,14 @@ service = AccountService()
 @authenticate
 def get_accounts():
     try:
+        logging.debug("Fetching accounts for user: %s", service.user.id)
         service.set_current_user()
         accounts = service.get_user_accounts(service.user.id)
         return format_response({
             "data": [account.to_api_response() for account in accounts]
         })
     except Exception as e:
+        logging.error("Error fetching accounts: %s", str(e))
         return handle_error("Failed to retrieve accounts", 500)
         
             

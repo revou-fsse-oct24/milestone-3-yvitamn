@@ -13,7 +13,7 @@ class TransactionRepository(DummyBaseRepository[Transaction]):
         super().__init__(
             model=Transaction,
             collection_name='transactions',
-            unique_fields=['public_id', 'verification_token_hash']
+            # unique_fields=['public_id', 'verification_token_hash']
         )
         
     

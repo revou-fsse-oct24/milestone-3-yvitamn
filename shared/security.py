@@ -3,23 +3,28 @@ import secrets
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Tuple
 from flask import current_app
+import redis
 from .exceptions import *
 from models.user_model import User
+
+
+# Configure Redis connection (You can modify the host, port as needed)
+r = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
 
 
 class SecurityUtils:
     @staticmethod
     def validate_pin_complexity(plain_pin: str) -> Tuple[bool, str]:
         """Enforce PIN complexity rules for banking applications"""
-        if len(plain_pin) != 8:
+        if len(plain_pin) < 8:
             return False, "PIN must be exactly 8 digits"
-        if not plain_pin.isdigit():
-            return False, "PIN must contain only numbers"
-        if len(set(plain_pin)) < 4:
-            return False, "PIN must contain at least 4 unique digits"
-        if plain_pin in ['12345678', '00000000']:
-            return False, "Common PINs are not allowed"
-        return True, ""
+        # if not plain_pin.isdigit():
+        #     return False, "PIN must contain only numbers"
+        # if len(set(plain_pin)) < 4:
+        #     return False, "PIN must contain at least 4 unique digits"
+        # if plain_pin in ['12345678', '00000000']:
+        #     return False, "Common PINs are not allowed"
+        return True, "PIN is valid"
 
     @staticmethod
     def hash_pin(plain_pin: str) -> str:
@@ -102,8 +107,24 @@ class SecurityUtils:
         random = secrets.token_hex(4)
         return f"{prefix}-{timestamp}-{random}"
 
+    #redis implementation
+    @staticmethod
+    def store_token_in_cache(user_id: str, token_hash: str, expiry: timedelta):
+        """Store token hash and expiry time in Redis cache"""
+        r.setex(f"user_token:{user_id}", token_hash, expiry)
+
+    @staticmethod
+    def validate_token_from_cache(user_id: str, raw_token: str) -> bool:
+        """Validate token using cached token hash"""
+        token_hash = r.get(f"user_token:{user_id}")
+        if not token_hash:
+            return False
+        return bcrypt.checkpw(raw_token.encode(), token_hash)
     
-        
+    @staticmethod
+    def invalidate_token_in_cache(user_id: str):
+        """Invalidate (delete) the token from the cache"""
+        r.delete(f"user_token:{user_id}")  # Delete the token hash from Redis
 
     # @staticmethod
     # def handle_failed_login(user):

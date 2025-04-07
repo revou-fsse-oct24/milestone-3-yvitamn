@@ -14,11 +14,16 @@ class AccountRepository(DummyBaseRepository[Account]):
         super().__init__(
             model=Account, 
             collection_name='accounts',
-            unique_fields=['account_number', 'user_id'] 
+            # unique_fields=['account_number', 'user_id'] 
             )
         
     def create(self, entity_data: dict) -> Account:
         """Create account with validation"""
+        existing_accounts = self.find_by_field('account_number', entity_data['account_number'])
+    
+        if any(a.user_id == entity_data['user_id'] for a in existing_accounts):
+            raise BusinessRuleViolation("Account number already exists for this user")
+    
         return super().create(entity_data)
         
     
@@ -56,10 +61,10 @@ class AccountRepository(DummyBaseRepository[Account]):
 
     def transfer_funds(self, from_id: str, to_id: str, amount: Decimal) -> tuple[Account, Account]:
         """Atomic funds transfer between accounts"""
-        with AtomicOperation(self.db): 
-            sender = self.update_balance(from_id, -amount),
-            receiver = self.update_balance(to_id, amount)
-            return sender, receiver
+        # with AtomicOperation(self.db): 
+        sender = self.update_balance(from_id, -amount),
+        receiver = self.update_balance(to_id, amount)
+        return sender, receiver
        
     
     def is_account_owner(self, account_id: str, user_id: str) -> bool:
@@ -80,7 +85,7 @@ class AccountRepository(DummyBaseRepository[Account]):
     
     
     def find_by_user(self, user_id: str) -> List[Account]:
-        """Index-based user account lookup"""
+        
         return self.find_by_field('user_id', user_id)
     
     

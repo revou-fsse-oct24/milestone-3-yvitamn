@@ -1,8 +1,8 @@
-
 from dataclasses import fields
 from typing import Optional
 from models.user_model import User
 from db.base_repo import DummyBaseRepository
+from db.dummy_db import dummy_db_instance
 from .account_repo import AccountRepository
 from shared.error_handlers import *
 from datetime import datetime
@@ -13,37 +13,40 @@ class UserRepository(DummyBaseRepository[User]):
         super().__init__(
             model=User,
             collection_name='users',
-            unique_fields=['email', 'username', 'token_hash']
+            # unique_fields=['email', 'username', 'token_hash']
         )
                       
                       
-    def create(self, user:User) -> User:
-        """Create user with index management"""
+    def create(self, entity_data: dict) -> User:
+        # Call the parent class's create method to store the user
+        created_user_data = super().create(entity_data)
+
+        # Return a new User object initialized with only the fields expected by the User model
+        # Sensitive fields like pin_hash and token_hash are not exposed here
+        new_user = User(
+            username=created_user_data["username"],
+            email=created_user_data["email"],
+            pin="dummy_pin",  # Use a placeholder since the actual PIN is hashed
+            first_name=created_user_data["first_name"],
+            last_name=created_user_data["last_name"],
+            role=created_user_data.role.get('role', "user") # Default to "user" if not provided
+        )
+            
+        return new_user
         
-        user_data = {
-            "username": user.username,
-            "email": user.email,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "pin_hash": user.pin_hash,
-             "token_hash": user.token_hash,
-            "token_expiry": user.token_expiry,
-            "created_at": user.created_at,
-            "updated_at": user.updated_at
-        }
-        return super().create(user_data)          
+        
     
-    def update(self, entity_data: dict) -> User:
+    def update(self, user: User) -> User:
         """Update user with index management"""
-        return super().update(entity_data)
+        return super().update(user)
 
 
     #search
     #Function to get user IDs associated with a given email
-    def _get_user_ids_by_email(self, email: str) -> set[str]:
-        """Get user IDs associated with a given email"""
-        normalized_email = email.strip().lower()
-        return self.db._indexes['users']['email'].get(normalized_email, set())
+    # def _get_user_ids_by_email(self, email: str) -> set[str]:
+    #     """Get user IDs associated with a given email"""
+    #     normalized_email = email.strip().lower()
+    #     return self.db._indexes['users']['email'].get(normalized_email, set())
     
     #find user by username
     def find_by_username(self, username: str) -> Optional[User]:  

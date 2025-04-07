@@ -33,40 +33,45 @@ class UserService:
         
         
     def register_user(self, user_data: dict) -> User:
-        #Validate input format
+        # Validate input format
         errors = self.schema.validate(user_data)
         if errors:
             raise ValidationError("Invalid user data", details=errors)
-        
-        #normalize inputs
+
+        # Normalize inputs
         username = user_data['username'].lower().strip()
         email = user_data['email'].lower().strip()
         pin = str(user_data['pin'])
-        
-        #Business logic validation (require database access)
+
+        # Business logic validation (require database access)
         # Validate PIN complexity
         is_valid, message = SecurityUtils.validate_pin_complexity(pin)
         if not is_valid:
             raise ValueError(message)
-      
-        #check existence
+
+        # Check existence
         if self.user_repo.email_exists(email):
             raise BusinessRuleViolation("Email already registered")
         if self.user_repo.find_by_username(username):
             raise BusinessRuleViolation("Username already exists")
-        
-        #Create user entity
+
+        # Remove pin_hash if it's accidentally present
+        user_data.pop('pin_hash', None)
+
+        # Create user entity
         user = User(
             username=username,
             email=email,
-            #model auto hash this pin
-            pin=pin, #hashed pin 
+            pin=pin,  # The model should handle hashing internally
             first_name=user_data.get('first_name', ''),
-            last_name=user_data.get('last_name', '')
-        )  
-        #generate auth token
+            last_name=user_data.get('last_name', ''),
+            role=user_data.get('role', 'user')
+        )
+
+        # Generate auth token
         user.refresh_token()
-        #Create user
+
+        # Create user
         return self.user_repo.create(user)
     
     
@@ -171,8 +176,8 @@ class UserService:
         if 'role' in update_data:
             if user.role == 'superadmin':
                 raise ForbiddenError("Cannot modify superadmin roles")
-            if self.current_user.role != 'superadmin':
-                raise ForbiddenError("Requires superadmin privileges")
+            if self.current_user.role != 'superadmin' and self.current_user.id != user.id:
+                raise ForbiddenError("Requires superadmin privileges to modify roles")
         
         # Email update handling
         if 'email' in update_data:
@@ -191,7 +196,29 @@ class UserService:
             user.role = update_data['role']
 
         user.updated_at = datetime.now()
+        #update the user in the repository (Redis or DB as per your design)
         return self.user_repo.update(user)
+
+
+    # def refresh_token(self, user_id: str) -> str:
+    #     """Refresh the authentication token, store it in Redis, and update the user"""
+    #     user = self.user_repo.find_by_id(user_id)
+        
+    #     if not user:
+    #         raise NotFoundError(f"User {user_id} does not exist")
+        
+    #     # Generate a new token, hash it, and set expiry
+    #     raw_token, hashed_token, expiry = SecurityUtils.generate_auth_token()
+        
+    #     # Store the token in Redis cache
+    #     SecurityUtils.store_token_in_cache(user_id, hashed_token, expiry - datetime.now())
+
+    #     # Optionally, update the user's token in the database
+    #     user.token_hash = hashed_token
+    #     user.token_expiry = expiry
+    #     self.user_repo.update(user)
+        
+    #     return raw_token
 
 
     # def update_other_user(self, target_user_id: str, update_data: dict) -> User:

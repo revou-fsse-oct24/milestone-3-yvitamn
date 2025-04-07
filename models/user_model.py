@@ -3,10 +3,10 @@ import secrets
 from uuid import uuid4
 import uuid
 import bcrypt
+import logging
 from shared.exceptions import *
 
-
-
+logging.setLevel(logging.DEBUG)
 #=============Models=========================    
 class User:
     def __init__(
@@ -19,13 +19,9 @@ class User:
         role: str = 'user'
     ):
         
-        # self.failed_login_attempts = 0
-        # self.account_locked_until = None
-        
         self.id = str(uuid.uuid4()) #Primary Key
         self.username = username.lower().strip()
         self.email = email.lower().strip()
-        # self.pin = pin #hash & uses property setter
         self.first_name = first_name
         self.last_name = last_name
         self.role = role
@@ -33,8 +29,7 @@ class User:
         self.updated_at = datetime.now()
         self.token_hash = None 
         self.token_expiry = None
- 
-        # PIN handling through property setter
+        logging.debug(f"Setting PIN for user {self.username}")
         self.pin = pin
         
     @property
@@ -49,9 +44,12 @@ class User:
     @pin.setter
     def pin(self, value: str):
         """Automatically hash PIN when set"""
+        logging.debug(f"Hashing PIN for {self.username}")
         from shared.security import SecurityUtils
+        logging.debug(f"Hashing PIN: {value}")
         valid, msg = SecurityUtils.validate_pin_complexity(value)
         if not valid:
+            logging.debug(f"Invalid PIN complexity: {msg}")
             raise SecurityValidationError(msg)
         self.pin_hash = SecurityUtils.hash_pin(value)  # Requires hash_pin()
        
@@ -85,24 +83,9 @@ class User:
     def to_api_response(self) -> dict:
         """Safe serialization (excludes sensitive fields)"""
         return {
-            # "id": self.id,
             "username": self.username,
             "email": self.email,
             "role": self.role,
             "created_at": self.created_at.isoformat(),
-            # "updated_at": self.updated_at.isoformat() 
         }    
-    
 
-    # def to_admin_dict(self) -> dict:
-    #     """Safe data exposure for admin views"""
-    #     return {
-    #         # "id": self.id,
-    #         "username": self.username,
-    #         "email": self.email,
-    #         "role": self.role,
-    #         "created_at": self.created_at,
-    #         "last_login": self.token_expiry  # Shows last activity
-    #     }
-        
- 

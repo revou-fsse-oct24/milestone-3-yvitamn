@@ -1,4 +1,5 @@
 import secrets
+import time
 from typing import Any, Dict
 from uuid import uuid4
 from datetime import datetime
@@ -6,25 +7,26 @@ from datetime import datetime
 from threading import Lock
 from marshmallow import ValidationError
 
-
-class AtomicOperation:
-    """Context manager for atomic database operations"""
-    def __init__(self, db):
-        self.db = db
+# class AtomicOperation:
+#     """Context manager for atomic database operations"""
+#     def __init__(self, db):
+#         self.db = db
         
-    def __enter__(self):
-        self.db.data_lock.acquire()
-        return self  # Return value available to 'as' clause
+#     def __enter__(self):
+#         self.db.data_lock.acquire()
+#         return self  # Return value available to 'as' clause
     
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.db.data_lock.release()
-        # Handle exceptions if needed
-        return False  # Let exceptions propagate
+#     def __exit__(self, exc_type, exc_val, exc_tb):
+#         self.db.data_lock.release()
+#         # Handle exceptions if needed
+#         return False  # Let exceptions propagate
     
     
 class DummyDB: #(Database)
     _instance = None  # Class-level variable to store singleton instance
-    _class_lock = Lock() # This is a threading lock for thread-safety
+    # _class_lock = Lock() # This is a threading lock for thread-safety
+    
+    
     
     def __new__(cls):
         with cls._class_lock:
@@ -32,124 +34,147 @@ class DummyDB: #(Database)
                 cls._instance = super().__new__(cls) # Create new instance
                 
                 # Initialize instance variables in __new__ since we're bypassing __init__
-                cls._instance.data_lock = Lock()
-                cls.collection_locks = {
-                    'users': Lock(),
-                    'accounts': Lock(),
-                    'transactions': Lock()
-                }
+                # cls._instance.data_lock = Lock()
+                # cls.collection_locks = {
+                #     'users': Lock(),
+                #     'accounts': Lock(),
+                #     'transactions': Lock()
+                # }
                 cls._instance.reset() # Initialize collections
             return cls._instance
     
-    def get_collection_lock(self, collection: str) -> Lock:
-        return self.collection_locks.get(collection, self.data_lock)
+    # def get_collection_lock(self, collection: str, timeout: float = 60.0 ) -> Lock:
+    #     lock = self.collection_locks.get(collection, self.data_lock)
+       
+    #     start_time = time.time()
+    #     while time.time() - start_time < timeout:
+    #         logging.debug(f"Attempting to acquire lock for {collection}")
+    #         if lock.acquire(timeout=0.1):
+    #             logging.debug(f"Lock acquired for {collection}")
+    #             return lock
+    #         logging.debug(f"Lock not available for {collection}, retrying...")
+            
+    #         time.sleep(0.1) 
+    #     raise TimeoutError(f"Could not acquire lock for {collection} within {timeout} seconds")
     
     def reset(self):
-        """Initialize all data structures with instance lock"""
-        with AtomicOperation(self): #use context manager
-            self.users: Dict[str, Any] = {}
-            self.accounts: Dict[str, Any] = {}
-            self.transactions: Dict[str, Any] = {}
+        self.users = {}
+        self.accounts = {}
+        self.transactions = {}
+
         
-            # Initialize all indexes
-            self._indexes = {
-                'users': {
-                    'email': {}, # For login/unique check
-                    'username': {}, # For login/unique check
-                    'token_hash': {} # For auth token validation
-                },
-                'accounts': {
-                    'user_id': {}, # Auto-indexed
-                    'account_number': {}, # Auto-indexed
-                    'balance': {}      # For overdraft prevention checks
-                },
-                'transactions': {
-                    'public_id': {},
-                    'from_account': {}, # Auto-indexed
-                    'to_account': {}, # Auto-indexed
-                    'type': {},
-                    'amount': {},
-                    'created_at': {},
-                    'status': {},
-                    'user_id': {},
-                    'verification_token_hash': {} 
-                }
-            }
+    #     """Initialize all data structures with instance lock"""
+    #     with AtomicOperation(self): #use context manager
+    #         self.users: Dict[str, Any] = {}
+    #         self.accounts: Dict[str, Any] = {}
+    #         self.transactions: Dict[str, Any] = {}
+        
+    #         # Initialize all indexes
+    #         self._indexes = {
+    #             'users': {
+    #                 'email': {}, # For login/unique check
+    #                 'username': {}, # For login/unique check
+    #                 'token_hash': {} # For auth token validation
+    #             },
+    #             'accounts': {
+    #                 'user_id': {}, # Auto-indexed
+    #                 'account_number': {}, # Auto-indexed
+    #                 'balance': {}      # For overdraft prevention checks
+    #             },
+    #             'transactions': {
+    #                 'public_id': {},
+    #                 'from_account': {}, # Auto-indexed
+    #                 'to_account': {}, # Auto-indexed
+    #                 'type': {},
+    #                 'amount': {},
+    #                 'created_at': {},
+    #                 'status': {},
+    #                 'user_id': {},
+    #                 'verification_token_hash': {} 
+    #             }
+    #         }
 
-    #Universal index management method
-    def add_to_index(self, 
-                     collection: str, 
-                     field: str, 
-                     value: Any, 
-                     entity_id: str):    
-        """Thread-safe index addition with auto-creation"""
-        with AtomicOperation(self):  
-            # Create collection if not exists
-            if collection not in self._indexes:
-                # raise ValueError(f"Collection {collection} not registered for indexing")
-                 self._indexes[collection] = {}
+    # #Universal index management method
+    # def add_to_index(self, 
+    #                  collection: str, 
+    #                  field: str, 
+    #                  value: Any, 
+    #                  entity_id: str):    
+    #     """Thread-safe index addition with auto-creation"""
+    #     with AtomicOperation(self): 
+    #         # print(f"Adding {entity_id} to index for {field} in collection {collection}")
+    #         # time.sleep(1) 
+    #         # Create collection if not exists
+    #         if collection not in self._indexes:
+    #             # raise ValueError(f"Collection {collection} not registered for indexing")
+    #              self._indexes[collection] = {}
                      
-            if field not in self._indexes[collection]:
-                self._indexes[collection][field] = {}
+    #         if field not in self._indexes[collection]:
+    #             self._indexes[collection][field] = {}
             
-            # Get reference to the index
-            index = self._indexes[collection][field]  
+    #         # Get reference to the index
+    #         index = self._indexes[collection][field]  
                 
-            if value not in index:
-                    index[value] = set()
-            index[value].add(entity_id)
+    #         if value not in index:
+    #                 index[value] = set()
+    #         index[value].add(entity_id)
             
-    def remove_from_index(self, 
-                          collection: str, 
-                          field: str, 
-                          value: Any, 
-                          entity_id: str):
-        """Thread-safe index removal with auto-cleanup"""
-        with AtomicOperation(self):
-            try:
-                if collection in self._indexes:
-                    collection_index = self._indexes[collection]
-                    if field in collection_index:
-                        field_index = collection_index[field]
-                        if value in field_index and entity_id in field_index[value]:
-                            field_index[value].remove(entity_id) # Clean up empty indexes   
-                            if not field_index[value]:
-                                del field_index[value]
+    # def remove_from_index(self, 
+    #                       collection: str, 
+    #                       field: str, 
+    #                       value: Any, 
+    #                       entity_id: str):
+    #     """Thread-safe index removal with auto-cleanup"""
+    #     with AtomicOperation(self):
+    #         try:
+    #             if collection in self._indexes:
+    #                 collection_index = self._indexes[collection]
+    #                 if field in collection_index:
+    #                     field_index = collection_index[field]
+    #                     if value in field_index and entity_id in field_index[value]:
+    #                         field_index[value].remove(entity_id) # Clean up empty indexes   
+    #                         if not field_index[value]:
+    #                             del field_index[value]
                    
-            except KeyError:
-                pass #handle missing entries
+    #         except KeyError:
+    #             pass #handle missing entries
 
-    def auto_index(self, entity_type: str, entity_id: str, data: dict, unique_fields: list = []):
-        """Automatically index fields marked for a collection"""
-        with AtomicOperation(self):  # Thread-safe
-            for field in self._indexes.get(entity_type, {}):
-                value = data.get(field)
-                if value is not None:
-                    # Check uniqueness before adding
-                    if field in unique_fields:
-                        existing = self._indexes[entity_type][field].get(value, set())
-                        if existing:
-                            raise ValidationError(f"{field} must be unique")
-                    self.add_to_index(entity_type, field, value, entity_id)
+    # def auto_index(self, entity_type: str, entity_id: str, data: dict, unique_fields: list = []):
+    #     """Automatically index fields marked for a collection"""
+    #     print("Entering auto_index")
+    #     with AtomicOperation(self):  # Thread-safe
+    #         print(f"Indexing {entity_type} with ID {entity_id}")
+    #         for field in self._indexes.get(entity_type, {}):
+    #             value = data.get(field)
+    #             if value is not None:
+    #                 # Check uniqueness before adding
+    #                 if field in unique_fields:
+    #                     existing = self._indexes[entity_type][field].get(value, set())
+    #                     if existing:
+    #                         raise ValidationError(f"{field} must be unique")
+    #                 self.add_to_index(entity_type, field, value, entity_id)
+    #     print("Leaving auto_index")
 
 
-    def find_by(self, collection: str, field: str, value: Any) -> list:
-        """Generic indexed lookup"""
-        with AtomicOperation(self):  # Thread-safe read
-            if collection not in self._indexes:
-                raise ValueError(f"Collection {collection} not indexed")
+    # def find_by(self, collection: str, field: str, value: Any) -> list:
+    #     """Generic indexed lookup"""
+    #     with AtomicOperation(self):  # Thread-safe read
+    #         if collection not in self._indexes:
+    #             raise ValueError(f"Collection {collection} not indexed")
             
-            if field not in self._indexes[collection]:
-                raise ValueError(f"Field {field} not indexed in {collection}")
+    #         if field not in self._indexes[collection]:
+    #             raise ValueError(f"Field {field} not indexed in {collection}")
             
-            entity_ids = self._indexes[collection][field].get(value, set())
-            return [self.__dict__[collection][_id] for _id in entity_ids]
+    #         entity_ids = self._indexes[collection][field].get(value, set())
+    #         return [self.__dict__[collection][_id] for _id in entity_ids]
 
     
-    def generate_account_number(self) -> str:
-        """Generate secure account numbers"""
-        with AtomicOperation(self):
-            return f"ACCT-{secrets.token_hex(6)}"  # 12-character random
+    # def generate_account_number(self) -> str:
+    #     """Generate secure account numbers"""
+    #     with AtomicOperation(self):
+    #         return f"ACCT-{secrets.token_hex(6)}"  # 12-character random
+        
+        
         
         
 #singleton initialization

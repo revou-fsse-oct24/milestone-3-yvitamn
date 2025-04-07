@@ -1,3 +1,4 @@
+from datetime import timedelta
 from functools import wraps
 from typing import Optional
 from flask import current_app, request, g
@@ -33,13 +34,12 @@ def authenticate(func):
                 'token_hash', SecurityUtils.hash_token(raw_token)
             )    
             # Validate token existence and expiry    
-            if not user or not SecurityUtils.validate_token(raw_token, user):
+            if not user or not SecurityUtils.validate_token_from_cache(raw_token, user):
                 raise InvalidTokenError("Invalid or expired token")
-        
-            # Refresh expiry on each request
-            # with dummy_db_instance.get_collection_lock('users'):
-            #     user.token_expiry = datetime.utcnow() + timedelta(hours=1)  # Simple 1hr extension
-            #     UserRepository().update(user)
+
+            # If token is valid, refresh expiry on each request (optional)
+            new_expiry = timedelta(hours=1)
+            SecurityUtils.store_token_in_cache(user.id, user.token_hash, new_expiry)
             
             g.current_user = user
             return func(*args, **kwargs)

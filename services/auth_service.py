@@ -1,4 +1,5 @@
 
+import redis
 from repos import user_repo
 from repos.user_repo import UserRepository 
 from schemas.auth_schema import LoginSchema
@@ -9,6 +10,7 @@ from shared.exceptions import *
 from db.dummy_db import dummy_db_instance  
 
 
+r = redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
 #=================================Auth Service====================   
 class AuthService:
     #make limit for pin attemps
@@ -41,10 +43,11 @@ class AuthService:
     
     def logout(self, user):
         """Secure logout with cryptographic token invalidation"""
-        with dummy_db_instance.get_collection_lock('users'):   
-            user.token_hash = None
-            user.token_expiry = None
-            self.user_repo.update(user)
+        # Invalidate token in Redis
+        SecurityUtils.invalidate_token_in_cache(user.id)  
+        user.token_hash = None
+        user.token_expiry = None
+        self.user_repo.update(user)
               
         
     def get_all_users(self):
@@ -63,13 +66,15 @@ class AuthService:
                 
         raw_token, hashed_token, expiry = SecurityUtils.generate_auth_token()
             
-        with dummy_db_instance.get_collection_lock('users'):    
-            # Automatically invalidates old token by replacement
-            user.token_hash = hashed_token
-            user.token_expiry = expiry
-            user_repo.update(user)  # Auto-handles indexes
+        # Store the token in Redis
+        SecurityUtils.store_token_in_cache(user_id, hashed_token, expiry - datetime.now())   
             
-            return raw_token
+        # Optionally, update the user's token data in the database (if needed)
+        user.token_hash = hashed_token
+        user.token_expiry = expiry
+        user_repo.update(user)  # Auto-handles indexes
+            
+        return raw_token
 
 
 
